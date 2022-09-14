@@ -1,4 +1,5 @@
 from cgi import test
+from turtle import shape
 import numpy as np
 import tklfp
 
@@ -83,8 +84,7 @@ def test_random_orientation():
     electrode2 = np.dot(rot_mat, electrode1)
     amp1 = tklfp.lfp_amplitude_function.compute_amp([soma1], [dendrite1], [electrode1])
     amp2 = tklfp.lfp_amplitude_function.compute_amp([soma2], [dendrite2], [electrode2])
-    for arr in range(len(amp1)):
-        assert amp1[arr] == (amp2[arr])
+    assert amp1 == amp2
     
 def rotation_matrix(rng: np.random.Generator = np.random.default_rng()):
     τ = 2 * np.pi
@@ -101,13 +101,19 @@ def test_multiple_inputs():
     soma = np.random.rand(5, 3) * 10
     dendrite = np.random.rand(5, 3) * 10
     electrode = np.random.rand(5, 3) * 10
-    midpoint = tklfp.lfp_amplitude_function.compute_midpoint(soma, dendrite)
-    print(tklfp.lfp_amplitude_function.compute_amp(soma, dendrite, electrode))
+    amp = tklfp.lfp_amplitude_function.compute_amp(soma, dendrite, electrode)
+    assert np.shape(amp) == (5,5)
 
 def test_fewer_electrodes():
     soma = np.random.rand(5, 3) * 10
     dendrite = np.random.rand(5, 3) * 10
     electrode = np.random.rand(2, 3) * 10
-    print(tklfp.lfp_amplitude_function.compute_amp(soma, dendrite, electrode))
+    amp = tklfp.lfp_amplitude_function.compute_amp(soma, dendrite, electrode)
+    assert np.shape(amp) == (2, 5)
 
-test_multiple_inputs()
+def test_output_shape():
+    soma = np.random.rand(100, 3) * 10
+    dendrite = np.random.rand(100, 3) * 10
+    electrode = np.random.rand(25, 3) * 10
+    amp = tklfp.lfp_amplitude_function.compute_amp(soma, dendrite, electrode)
+    assert np.shape(amp) == (25, 100)

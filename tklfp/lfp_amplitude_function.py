@@ -20,11 +20,11 @@ def compute_amp (soma, dendrite, electrode):
     midpoint = compute_midpoint(soma, dendrite)
     distance = compute_distance(midpoint, electrode)
     angle = compute_angle(midpoint, electrode)
-    LFP_amp_arr = []
+    LFP_amp_arr = np.empty([len(electrode), len(soma)])
     for arr in range(len(electrode)):
         for num in range(len(soma)):
             LFP_amp = (length[arr] * math.cos(angle[num])) / (4 * math.pi * 0.3 * distance[num] ** 2)
-            LFP_amp_arr.append(round(LFP_amp, 15))
+            LFP_amp_arr[arr][num] = round(LFP_amp, 15)
     return LFP_amp_arr
 
 def compute_length (soma, dendrite):
