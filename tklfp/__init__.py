@@ -4,6 +4,7 @@ from numpy.typing import ArrayLike
 import scipy
 import pickle
 import importlib.resources as pkg_resources
+import tklfp.lfp_amplitude_function
 
 
 def _load_uLFP_A0_profile(fname):
