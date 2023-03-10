@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pytest
 import wslfp as WSLFP
+import math
 
 def test_horizontal_profile():
     #if the electrode is closer to the neuron, signal should be stronger
@@ -62,5 +63,6 @@ def test_check_timepoints(t_ampa, t_gaba, t_eval, success):
 
     # dont need to check every single time points
 
-    
-    
+def test_sqrt():
+    num = 25
+    assert math.sqrt(num) == 5
