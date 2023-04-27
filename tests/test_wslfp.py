@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pytest
-import wslfp as WSLFP
+import tklfp.wslfp as WSLFP
 import math
 
 def test_horizontal_profile():
