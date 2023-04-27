@@ -1,11 +1,11 @@
 from logging import raiseExceptions
-import numpy as np
-from numpy.typing import ArrayLike
 from scipy.interpolate import interp1d
 from numpy.linalg import norm
 import pickle
 import importlib.resources as pkg_resources
 from numpy import array
+import numpy as np
+import lfp_amplitude_function
 
 class WSLFP:
     def __init__(self, xs, ys, zs, elec_coords, alpha=1.65, tau_ampa_ms=6, tau_gaba_ms=0):
@@ -21,7 +21,7 @@ class WSLFP:
     def _amplitude(self, xs, ys, zs, elec_coords):
         ...
 
-    def compute(ampa: np.ndarray, t_ampa_ms, gaba: np.ndarray, t_gaba_ms, t_eval_ms: np.ndarray):
+    #def compute(ampa: np.ndarray, t_ampa_ms, gaba: np.ndarray, t_gaba_ms, t_eval_ms: np.ndarray):
         """_summary_
 ​
         Parameters
@@ -45,14 +45,14 @@ class WSLFP:
         lfp = wslfp.compute(..., t_gaba_ms=[multiple, gaba, measurements], t_eval_ms=[a, whole, bunch, of, timepoints])
         """
 
-        try:
-            _check_timepoints(t_ampa_ms, t_gaba_ms, t_eval_ms)
+        #try:
+           # _check_timepoints(t_ampa_ms, t_gaba_ms, t_eval_ms)
             
 
 
     def compute_ampa_time(t_ampa_ms, tau_ampa):
         ampa_time_arr = np.array(t_ampa_ms)
-        for x in ampa_time_arr.size - 1:
+        for x in range(ampa_time_arr.size):
             ampa_time_arr[x] = t_ampa_ms[x] - tau_ampa
         return ampa_time_arr
 
@@ -60,23 +60,23 @@ class WSLFP:
 
     def compute_gaba_time(t_gaba_ms, tau_gaba):
         gaba_time_arr = np.array(t_gaba_ms)
-        for x in gaba_time_arr.size - 1:
+        for x in range(gaba_time_arr.size):
             gaba_time_arr[x] = t_gaba_ms[x] - tau_gaba
         return gaba_time_arr
 
     def compute_ampa(ampa:np.ndarray, t_ampa_ms, tau_ampa):
         ampa_arr = np.array(ampa)
         time = compute_ampa_time(t_ampa_ms, tau_ampa)
-        for x in time.size:
-            ampa_arr[x] = ampa[x] * time[x]
+        for x in range(time.size):
+            ampa_arr[x] = ampa_arr[x] * time[x]
         return ampa_arr
 
     def compute_gaba(gaba:np.ndarray, t_gaba_ms, tau_gaba):
-    gaba_arr = np.array(gaba)
-    time = compute_gaba_time(t_gaba_ms, tau_gaba)
-    for x in time.size: #no for loop
-        gaba_arr[x] = gaba[x] * time[x] #should be gaba at that time
-    return gaba_arr
+        gaba_arr = np.array(gaba)
+        time = compute_gaba_time(t_gaba_ms, tau_gaba)
+        for x in range(time.size): #no for loop
+            gaba_arr[x] = gaba_arr[x] * time[x] #should be gaba at that time
+        return gaba_arr
 
     def sum_ampa(ampa, t_ampa_ms, tau_ampa):
         ampa_sum = 0
