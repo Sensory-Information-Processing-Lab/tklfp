@@ -5,7 +5,7 @@ import pickle
 import importlib.resources as pkg_resources
 from numpy import array
 import numpy as np
-import lfp_amplitude_function
+from wslfp import lfp_amplitude_function
 
 class WSLFP:
     def __init__(self, xs, ys, zs, elec_coords, alpha=1.65, tau_ampa_ms=6, tau_gaba_ms=0):
