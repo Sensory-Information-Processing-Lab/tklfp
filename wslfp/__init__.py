@@ -50,7 +50,7 @@ class WSLFP:
             
 
 
-    def compute_ampa_time(t_ampa_ms, tau_ampa):
+    def compute_ampa_time(self,t_ampa_ms, tau_ampa):
         ampa_time_arr = np.array(t_ampa_ms)
         for x in range(ampa_time_arr.size):
             ampa_time_arr[x] = t_ampa_ms[x] - tau_ampa
@@ -58,36 +58,36 @@ class WSLFP:
 
 # use numpy array instead of loop
 
-    def compute_gaba_time(t_gaba_ms, tau_gaba):
+    def compute_gaba_time(self,t_gaba_ms, tau_gaba):
         gaba_time_arr = np.array(t_gaba_ms)
         for x in range(gaba_time_arr.size):
             gaba_time_arr[x] = t_gaba_ms[x] - tau_gaba
         return gaba_time_arr
 
-    def compute_ampa(ampa:np.ndarray, t_ampa_ms, tau_ampa):
+    def compute_ampa(self,ampa:np.ndarray, t_ampa_ms, tau_ampa):
         ampa_arr = np.array(ampa)
-        time = compute_ampa_time(t_ampa_ms, tau_ampa)
+        time = self.compute_ampa_time(t_ampa_ms, tau_ampa)
         for x in range(time.size):
-            ampa_arr[x] = ampa_arr[x] * time[x]
+            ampa_arr[x] = ampa_arr[x] * time[x] #numpy for forloop
         return ampa_arr
 
-    def compute_gaba(gaba:np.ndarray, t_gaba_ms, tau_gaba):
+    def compute_gaba(self,gaba:np.ndarray, t_gaba_ms, tau_gaba):
         gaba_arr = np.array(gaba)
-        time = compute_gaba_time(t_gaba_ms, tau_gaba)
+        time = self.compute_gaba_time(t_gaba_ms, tau_gaba)
         for x in range(time.size): #no for loop
             gaba_arr[x] = gaba_arr[x] * time[x] #should be gaba at that time
         return gaba_arr
 
-    def sum_ampa(ampa, t_ampa_ms, tau_ampa):
+    def sum_ampa(self,ampa, t_ampa_ms, tau_ampa):
         ampa_sum = 0
-        ampa_arr = compute_ampa(ampa, t_ampa_ms, tau_ampa)
+        ampa_arr = self.compute_ampa(ampa, t_ampa_ms, tau_ampa)
         for ampa_curr in ampa_arr:
             ampa_sum += ampa_curr
         return ampa_sum
 
-    def sum_gaba(gaba, t_gaba_ms, tau_gaba):
+    def sum_gaba(self,gaba, t_gaba_ms, tau_gaba):
         gaba_sum = 0
-        gaba_arr = compute_gaba(gaba, t_gaba_ms, tau_gaba)
+        gaba_arr = self.compute_gaba(gaba, t_gaba_ms, tau_gaba)
         for gaba_curr in gaba_arr:
             gaba_sum += gaba_curr
         return gaba_sum
