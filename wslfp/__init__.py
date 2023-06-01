@@ -50,33 +50,24 @@ class WSLFP:
             
 
 
-    def compute_ampa_time(self,t_ampa_ms, tau_ampa):
+    #substract tau from t_eval NEW CODE
+    def compute_gaba_curr(self, gaba, t_gaba_ms, tau_gaba, t_eval_ms): # evaluate at 1 timepoint, so t_eval_ms is a float
+        gaba = np.array(gaba)
+        col = np.where(t_gaba_ms == t_eval_ms)
+        return gaba[: , col][1] #return gaba currents of all neurons at t_eval
+
+
+    def compute_ampa_time(self,t_ampa_ms, tau_ampa, t_eval_ms): 
         ampa_time_arr = np.array(t_ampa_ms)
-        for x in range(ampa_time_arr.size):
-            ampa_time_arr[x] = t_ampa_ms[x] - tau_ampa
+        np.substract(ampa_time_arr, tau_ampa)
         return ampa_time_arr
 
 # use numpy array instead of loop
-
-    def compute_gaba_time(self,t_gaba_ms, tau_gaba):
-        gaba_time_arr = np.array(t_gaba_ms)
-        for x in range(gaba_time_arr.size):
-            gaba_time_arr[x] = t_gaba_ms[x] - tau_gaba
-        return gaba_time_arr
-
     def compute_ampa(self,ampa:np.ndarray, t_ampa_ms, tau_ampa):
         ampa_arr = np.array(ampa)
         time = self.compute_ampa_time(t_ampa_ms, tau_ampa)
-        for x in range(time.size):
-            ampa_arr[x] = ampa_arr[x] * time[x] #numpy for forloop
+        ampa_arr = ampa_arr * time #numpy for forloop
         return ampa_arr
-
-    def compute_gaba(self,gaba:np.ndarray, t_gaba_ms, tau_gaba):
-        gaba_arr = np.array(gaba)
-        time = self.compute_gaba_time(t_gaba_ms, tau_gaba)
-        for x in range(time.size): #no for loop
-            gaba_arr[x] = gaba_arr[x] * time[x] #should be gaba at that time
-        return gaba_arr
 
     def sum_ampa(self,ampa, t_ampa_ms, tau_ampa):
         ampa_sum = 0
@@ -92,7 +83,7 @@ class WSLFP:
             gaba_sum += gaba_curr
         return gaba_sum
 
-    def _check_timepoints(t_ampa_ms, t_gaba_ms, tau_ampa, tau_gaba, t_eval_ms, I_ampa):
+    def check_timepoints(t_ampa_ms, t_gaba_ms, tau_ampa, tau_gaba, t_eval_ms, I_ampa):
         # need exact timepoints if just one measurement is given. Otherwise, let interpolation throw an error
         # when out of range
         # check t_ampa_ms: ranging from at least tau_ampa ms before the first eval point
