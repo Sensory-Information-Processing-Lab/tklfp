@@ -47,14 +47,16 @@ class WSLFP:
 
         #try:
            # _check_timepoints(t_ampa_ms, t_gaba_ms, t_eval_ms)
-            
-
-
+    
+    # 1. combine check timepoints to compute curr
+    # 2.
+    
     #substract tau from t_eval NEW CODE
     def compute_gaba_curr(self, gaba, t_gaba_ms, tau_gaba, t_eval_ms): # evaluate at 1 timepoint, so t_eval_ms is a float
         gaba = np.array(gaba)
-        col = np.where(t_gaba_ms == t_eval_ms)
-        return gaba[: , col][1] #return gaba currents of all neurons at t_eval
+        row = np.where(t_gaba_ms == t_eval_ms) #use interpolation
+
+        return gaba[row , : ] #return gaba currents of all neurons at t_eval
 
 
     def compute_ampa_time(self,t_ampa_ms, tau_ampa, t_eval_ms): 
@@ -83,7 +85,7 @@ class WSLFP:
             gaba_sum += gaba_curr
         return gaba_sum
 
-    def check_timepoints(t_ampa_ms, t_gaba_ms, tau_ampa, tau_gaba, t_eval_ms, I_ampa):
+    def check_ampa_timepoints(ampa, t_ampa_ms, t_eval_ms, tau_ampa): 
         # need exact timepoints if just one measurement is given. Otherwise, let interpolation throw an error
         # when out of range
         # check t_ampa_ms: ranging from at least tau_ampa ms before the first eval point
@@ -97,19 +99,24 @@ class WSLFP:
             if len(t_ampa_ms) == 1:
                 if t > t_ampa_ms[0]:
                     raise Exception("ampa not valid")
-            elif t < np.min(t_ampa_ms) or t > np.max(t_gaba_ms):
+            elif t - tau_ampa < np.min(t_ampa_ms) or t - tau_ampa > np.max(t_ampa_ms):
                 raise Exception("ampa not valid")
             else:
-                interp_ampa = interp1d(t_ampa_ms, I_ampa)
-                I_ampa_eval = interp1d(t_eval_ms - tau_ampa)
+                interp_ampa = interp1d(t_ampa_ms, ampa, kind= 'quadratic')
+        return interp_ampa
 
             #else:
                 #t_ampa_chosen = interp1d(t_ampa_ms, t_eval_ms, kind = int)
                 #if t > t_ampa_chosen:
                     #raise Exception("ampa not valid")
-
-            if t - tau_gaba < np.min(t_gaba_ms) or t - tau_gaba > np.max(t_gaba_ms):
+    def check_gaba_timepoints(gaba, t_gaba_ms, t_eval_ms) :
+        for t in [np.min(t_eval_ms), np.max(t_eval_ms)]:
+            if t < np.min(t_gaba_ms) or t > np.max(t_gaba_ms):
                 raise Exception("gaba not valid")
+            else:
+                interp_gaba = interp1d(t_gaba_ms, gaba, kind= 'quadratic')
+        return interp_gaba
+        
  
          
 
