@@ -54,10 +54,14 @@ class WSLFP:
     #substract tau from t_eval NEW CODE
     def compute_gaba_curr(self, gaba, t_gaba_ms, tau_gaba, t_eval_ms): # evaluate at 1 timepoint, so t_eval_ms is a float
         gaba = np.array(gaba)
-        row = np.where(t_gaba_ms == t_eval_ms) #use interpolation
+        #row = np.where(t_gaba_ms == t_eval_ms) 
+        # #use interpolation
+        gaba_interp = self.check_gaba_timepoints(gaba, t_gaba_ms, t_eval_ms, tau_gaba)
+        
+        return gaba_interp[t_eval_ms] #return gaba currents of all neurons at t_eval
 
-        return gaba[row , : ] #return gaba currents of all neurons at t_eval
-
+    #def compute_ampa_curr(self, ampa, t)
+    
 
     def compute_ampa_time(self,t_ampa_ms, tau_ampa, t_eval_ms): 
         ampa_time_arr = np.array(t_ampa_ms)
@@ -109,9 +113,9 @@ class WSLFP:
                 #t_ampa_chosen = interp1d(t_ampa_ms, t_eval_ms, kind = int)
                 #if t > t_ampa_chosen:
                     #raise Exception("ampa not valid")
-    def check_gaba_timepoints(gaba, t_gaba_ms, t_eval_ms) :
+    def check_gaba_timepoints(gaba, t_gaba_ms, t_eval_ms, tau_gaba) :
         for t in [np.min(t_eval_ms), np.max(t_eval_ms)]:
-            if t < np.min(t_gaba_ms) or t > np.max(t_gaba_ms):
+            if t - tau_gaba < np.min(t_gaba_ms) or t - tau_gaba > np.max(t_gaba_ms):
                 raise Exception("gaba not valid")
             else:
                 interp_gaba = interp1d(t_gaba_ms, gaba, kind= 'quadratic')
