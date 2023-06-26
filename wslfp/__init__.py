@@ -52,7 +52,7 @@ class WSLFP:
     # 2.
     
     #substract tau from t_eval NEW CODE
-    def compute_gaba_curr(self, gaba, t_gaba_ms, tau_gaba, t_eval_ms): # evaluate at 1 timepoint, so t_eval_ms is a float
+    def compute_gaba_curr(self, t_gaba_ms, tau_gaba, t_eval_ms): # evaluate at 1 timepoint, so t_eval_ms is a float
         gaba = np.array(gaba)
         #row = np.where(t_gaba_ms == t_eval_ms) 
         # #use interpolation
@@ -63,31 +63,12 @@ class WSLFP:
     #def compute_ampa_curr(self, ampa, t)
     
 
-    def compute_ampa_time(self,t_ampa_ms, tau_ampa, t_eval_ms): 
-        ampa_time_arr = np.array(t_ampa_ms)
-        np.substract(ampa_time_arr, tau_ampa)
-        return ampa_time_arr
+    def compute_ampa_curr(self,t_ampa_ms, tau_ampa, t_eval_ms): 
+        ampa = np.array(ampa)
+        #np.substract(ampa_time_arr, tau_ampa)
+        ampa_interp = self.check_ampa_timepoints(ampa, t_ampa_ms, t_eval_ms, tau_ampa)
+        return ampa_interp[t_eval_ms]
 
-# use numpy array instead of loop
-    def compute_ampa(self,ampa:np.ndarray, t_ampa_ms, tau_ampa):
-        ampa_arr = np.array(ampa)
-        time = self.compute_ampa_time(t_ampa_ms, tau_ampa)
-        ampa_arr = ampa_arr * time #numpy for forloop
-        return ampa_arr
-
-    def sum_ampa(self,ampa, t_ampa_ms, tau_ampa):
-        ampa_sum = 0
-        ampa_arr = self.compute_ampa(ampa, t_ampa_ms, tau_ampa)
-        for ampa_curr in ampa_arr:
-            ampa_sum += ampa_curr
-        return ampa_sum
-
-    def sum_gaba(self,gaba, t_gaba_ms, tau_gaba):
-        gaba_sum = 0
-        gaba_arr = self.compute_gaba(gaba, t_gaba_ms, tau_gaba)
-        for gaba_curr in gaba_arr:
-            gaba_sum += gaba_curr
-        return gaba_sum
 
     def check_ampa_timepoints(ampa, t_ampa_ms, t_eval_ms, tau_ampa): 
         # need exact timepoints if just one measurement is given. Otherwise, let interpolation throw an error
