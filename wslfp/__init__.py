@@ -19,7 +19,7 @@ class WSLFP:
         self.tau_gaba_ms = tau_gaba_ms
 
     def _amplitude(self, xs, ys, zs, elec_coords):
-        ...
+        pass
 
     #def compute(ampa: np.ndarray, t_ampa_ms, gaba: np.ndarray, t_gaba_ms, t_eval_ms: np.ndarray):
         """_summary_
@@ -52,25 +52,33 @@ class WSLFP:
     # 2.
     
     #substract tau from t_eval NEW CODE
-    def compute_gaba_curr(self, t_gaba_ms, tau_gaba, t_eval_ms): # evaluate at 1 timepoint, so t_eval_ms is a float
+    def _compute_gaba_curr(self, gaba, t_gaba_ms, tau_gaba, t_eval_ms): # evaluate at 1 timepoint, so t_eval_ms is a float
         gaba = np.array(gaba)
         #row = np.where(t_gaba_ms == t_eval_ms) 
         # #use interpolation
-        gaba_interp = self.check_gaba_timepoints(gaba, t_gaba_ms, t_eval_ms, tau_gaba)
+        gaba_interp = self._check_gaba_timepoints(gaba, t_gaba_ms, t_eval_ms, tau_gaba)
         
-        return gaba_interp[t_eval_ms] #return gaba currents of all neurons at t_eval
+        return gaba_interp(t_eval_ms) #return gaba currents of all neurons at t_eval
 
     #def compute_ampa_curr(self, ampa, t)
     
 
-    def compute_ampa_curr(self,t_ampa_ms, tau_ampa, t_eval_ms): 
+    def _compute_ampa_curr(self, ampa, t_ampa_ms, tau_ampa, t_eval_ms): 
         ampa = np.array(ampa)
         #np.substract(ampa_time_arr, tau_ampa)
-        ampa_interp = self.check_ampa_timepoints(ampa, t_ampa_ms, t_eval_ms, tau_ampa)
-        return ampa_interp[t_eval_ms]
+        ampa_interp = self._check_ampa_timepoints(ampa, t_ampa_ms, t_eval_ms, tau_ampa)
+        return ampa_interp(t_eval_ms)
+
+    def _lfp_ws_proxy(self, t_ampa, t_gaba, tau_ampa, tau_gaba, t_eval):
+        ampa_sum = np.sum(self._compute_ampa_curr(t_ampa, tau_ampa, t_eval))
+        gaba_sum = np.sum(self._compute_gaba_curr(t_gaba, tau_gaba, t_eval))
+        
+        amp = lfp_amplitude_function.compute_amp() #fill in parameters
+        lfp_ws = amp * np.maximum(ampa_sum - gaba_sum, 0.0);
+        return lfp_ws
 
 
-    def check_ampa_timepoints(ampa, t_ampa_ms, t_eval_ms, tau_ampa): 
+    def _check_ampa_timepoints(self, ampa, t_ampa_ms, t_eval_ms, tau_ampa): 
         # need exact timepoints if just one measurement is given. Otherwise, let interpolation throw an error
         # when out of range
         # check t_ampa_ms: ranging from at least tau_ampa ms before the first eval point
@@ -88,13 +96,14 @@ class WSLFP:
                 raise Exception("ampa not valid")
             else:
                 interp_ampa = interp1d(t_ampa_ms, ampa, kind= 'quadratic')
+
         return interp_ampa
 
             #else:
                 #t_ampa_chosen = interp1d(t_ampa_ms, t_eval_ms, kind = int)
                 #if t > t_ampa_chosen:
                     #raise Exception("ampa not valid")
-    def check_gaba_timepoints(gaba, t_gaba_ms, t_eval_ms, tau_gaba) :
+    def _check_gaba_timepoints(self, gaba, t_gaba_ms, t_eval_ms, tau_gaba) :
         for t in [np.min(t_eval_ms), np.max(t_eval_ms)]:
             if t - tau_gaba < np.min(t_gaba_ms) or t - tau_gaba > np.max(t_gaba_ms):
                 raise Exception("gaba not valid")
