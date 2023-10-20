@@ -69,9 +69,9 @@ class WSLFP:
         ampa_interp = self._check_ampa_timepoints(ampa, t_ampa_ms, t_eval_ms, tau_ampa)
         return ampa_interp(t_eval_ms)
 
-    def _lfp_ws_proxy(self, t_ampa, t_gaba, tau_ampa, tau_gaba, t_eval):
-        ampa_sum = np.sum(self._compute_ampa_curr(t_ampa, tau_ampa, t_eval))
-        gaba_sum = np.sum(self._compute_gaba_curr(t_gaba, tau_gaba, t_eval))
+    def _lfp_ws_proxy(self, ampa, gaba, t_ampa, t_gaba, tau_ampa, tau_gaba, t_eval):
+        ampa_sum = np.sum(self._compute_ampa_curr(ampa, t_ampa, tau_ampa, t_eval))
+        gaba_sum = np.sum(self._compute_gaba_curr(gaba, t_gaba, tau_gaba, t_eval))
         
         amp = lfp_amplitude_function.compute_amp() #fill in parameters
         lfp_ws = amp * np.maximum(ampa_sum - gaba_sum, 0.0);

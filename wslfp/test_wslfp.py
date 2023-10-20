@@ -66,6 +66,34 @@ from wslfp import WSLFP
 #     (np.array([1.0, 2.0, 3.0]), np.array([0.5, 1.5, 2.5]), 0.5, 0.2, 2.0, True),
 #     (np.array([1.0, 2.0, 3.0]), np.array([0.5, 1.5, 2.5]), 0.5, 0.2, 2.0, False),  # Add more test cases as needed
 # ]
+def test_compute_gaba():
+    xs = np.array([1, 2, 3])
+    ys = np.array([4, 5, 6])
+    zs = np.array([7, 8, 9])
+    elec_coords = np.array([[1, 1, 1], [2, 2, 2]])
+    sample = WSLFP(xs, ys, zs, elec_coords)
+    ampa = np.array([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
+    t_ampa_ms = np.array([1,2])
+    gaba = np.array([[1.0, 1.0, 1.0], [1.5, 1.5, 1.5]])
+    t_gaba_ms = np.array([1, 2])
+    t_eval_ms = np.array([2.5])
+    ampa_curr = sample._compute_ampa_curr(ampa, t_ampa_ms, sample.tau_ampa_ms, t_eval_ms)
+    assert isinstance(ampa_curr, float)  # Check if the result is a float
+
+def test_compute_gaba():
+    xs = np.array([1, 2, 3])
+    ys = np.array([4, 5, 6])
+    zs = np.array([7, 8, 9])
+    elec_coords = np.array([[1, 1, 1], [2, 2, 2]])
+    sample = WSLFP(xs, ys, zs, elec_coords)
+    ampa = np.array([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
+    t_ampa_ms = np.array([1,2])
+    gaba = np.array([[1.0, 1.0, 1.0], [1.5, 1.5, 1.5]])
+    t_gaba_ms = np.array([1, 2])
+    t_eval_ms = np.array([2.5])
+    gaba_curr = sample._compute_gaba_curr(gaba, t_gaba_ms, sample.tau_gaba_ms, t_eval_ms)
+#     print(gaba_curr.type())
+    assert isinstance(gaba_curr, float)  # Check if the result is a float
 
 def test_compute_lfp():
     xs = np.array([1, 2, 3])
@@ -78,7 +106,7 @@ def test_compute_lfp():
     gaba = np.array([[1.0, 1.0, 1.0], [1.5, 1.5, 1.5]])
     t_gaba_ms = np.array([1, 2])
     t_eval_ms = np.array([2.5])
-    compute_lfp = sample._lfp_ws_proxy(t_ampa_ms, t_gaba_ms, sample.tau_ampa_ms, sample.tau_gaba_ms, t_eval_ms[0])
+    compute_lfp = sample._lfp_ws_proxy(ampa, gaba, t_ampa_ms, t_gaba_ms, sample.tau_ampa_ms, sample.tau_gaba_ms, t_eval_ms[0])
     ampa_shifted = ampa[1]  # Assuming t_eval_ms - tau_ampa is close to the second time point
     gaba_shifted = gaba[1]
     expected_lfp = np.maximum(np.sum(ampa_shifted) - np.sum(gaba_shifted), 0.0)
