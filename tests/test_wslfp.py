@@ -1,9 +1,6 @@
 import numpy as np
 import pytest
-import sys
-import sys
-sys.path.append('/Users/alissa/Documents/WSLFP/wslfp')
-from wslfp import WSLFP
+from src import WSLFP
 
 # @pytest.mark.parametrize (
 #     "t_ampa, t_gaba, t_eval, success",
@@ -66,19 +63,21 @@ from wslfp import WSLFP
 #     (np.array([1.0, 2.0, 3.0]), np.array([0.5, 1.5, 2.5]), 0.5, 0.2, 2.0, True),
 #     (np.array([1.0, 2.0, 3.0]), np.array([0.5, 1.5, 2.5]), 0.5, 0.2, 2.0, False),  # Add more test cases as needed
 # ]
-def test_compute_gaba():
+def test_compute_ampa():
     xs = np.array([1, 2, 3])
     ys = np.array([4, 5, 6])
     zs = np.array([7, 8, 9])
     elec_coords = np.array([[1, 1, 1], [2, 2, 2]])
     sample = WSLFP(xs, ys, zs, elec_coords)
     ampa = np.array([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
-    t_ampa_ms = np.array([1,2])
-    gaba = np.array([[1.0, 1.0, 1.0], [1.5, 1.5, 1.5]])
-    t_gaba_ms = np.array([1, 2])
-    t_eval_ms = np.array([2.5])
-    ampa_curr = sample._compute_ampa_curr(ampa, t_ampa_ms, sample.tau_ampa_ms, t_eval_ms)
-    assert isinstance(ampa_curr, float)  # Check if the result is a float
+    t_ampa_ms = np.array([5, 15, 20])
+    t_eval_ms = np.array([11, 15, 18])
+    results = [sample._compute_ampa_curr(ampa, t_ampa_ms, sample.tau_ampa_ms, t) for t in t_eval_ms]
+    
+    # Check results
+    for ampa_curr in results:
+        print(ampa_curr)
+        assert isinstance(ampa_curr, np.ndarray) and ampa_curr.dtype == np.float64
 
 def test_compute_gaba():
     xs = np.array([1, 2, 3])
@@ -86,14 +85,15 @@ def test_compute_gaba():
     zs = np.array([7, 8, 9])
     elec_coords = np.array([[1, 1, 1], [2, 2, 2]])
     sample = WSLFP(xs, ys, zs, elec_coords)
-    ampa = np.array([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
-    t_ampa_ms = np.array([1,2])
     gaba = np.array([[1.0, 1.0, 1.0], [1.5, 1.5, 1.5]])
-    t_gaba_ms = np.array([1, 2])
-    t_eval_ms = np.array([2.5])
-    gaba_curr = sample._compute_gaba_curr(gaba, t_gaba_ms, sample.tau_gaba_ms, t_eval_ms)
-#     print(gaba_curr.type())
-    assert isinstance(gaba_curr, float)  # Check if the result is a float
+    t_gaba_ms = np.array([5,15, 20])
+    t_eval_ms = np.array([11,15, 18])
+    results = [sample._compute_ampa_curr(gaba, t_gaba_ms, sample.tau_gaba_ms, t) for t in t_eval_ms]
+    
+    # Check results
+    for gaba_curr in results:
+        print(gaba_curr)
+        assert isinstance(gaba_curr, np.ndarray) and gaba_curr.dtype == np.float64
 
 def test_compute_lfp():
     xs = np.array([1, 2, 3])
@@ -101,16 +101,36 @@ def test_compute_lfp():
     zs = np.array([7, 8, 9])
     elec_coords = np.array([[1, 1, 1], [2, 2, 2]])
     sample = WSLFP(xs, ys, zs, elec_coords)
-    ampa = np.array([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
-    t_ampa_ms = np.array([1,2])
-    gaba = np.array([[1.0, 1.0, 1.0], [1.5, 1.5, 1.5]])
-    t_gaba_ms = np.array([1, 2])
-    t_eval_ms = np.array([2.5])
+    ampa = np.array([1.0, 2.0, 3.0])
+    t_ampa_ms = np.array([5, 15, 20])
+    gaba = np.array([1.0, 2.0, 3.0])
+    t_gaba_ms = np.array([5,15, 20])
+    t_eval_ms = np.array([11,15, 18])
     compute_lfp = sample._lfp_ws_proxy(ampa, gaba, t_ampa_ms, t_gaba_ms, sample.tau_ampa_ms, sample.tau_gaba_ms, t_eval_ms[0])
     ampa_shifted = ampa[1]  # Assuming t_eval_ms - tau_ampa is close to the second time point
     gaba_shifted = gaba[1]
     expected_lfp = np.maximum(np.sum(ampa_shifted) - np.sum(gaba_shifted), 0.0)
     assert np.isclose(compute_lfp, expected_lfp), f"Expected {expected_lfp}, but got {compute_lfp}"
+
+def is_increasing(arr):
+    """Check if a given array is strictly increasing."""
+    return np.all(np.diff(arr) > 0)
+
+def test_timepoints_increasing():
+    # Test with an increasing array
+    xs = np.array([1, 2, 3])
+    ys = np.array([4, 5, 6])
+    zs = np.array([7, 8, 9])
+    elec_coords = np.array([[1, 1, 1], [2, 2, 2]])
+    sample = WSLFP(xs, ys, zs, elec_coords)
+    ampa = np.array([1.0, 2.0, 3.0])
+    t_ampa_ms = np.array([5, 15, 20])
+    gaba = np.array([1.0, 2.0, 3.0])
+    t_gaba_ms = np.array([5,15, 20])
+    t_eval_ms = np.array([11,15, 18])
+    assert is_increasing(t_ampa_ms), f"Expected {t_ampa_ms} to be increasing"
+    assert is_increasing(t_gaba_ms), f"Expected {t_gaba_ms} to be increasing"
+    assert is_increasing(t_eval_ms), f"Expected {t_eval_ms} to be strictly increasing"
 
 # Use the @pytest.mark.parametrize decorator to run the test with each set of data
 # @pytest.mark.parametrize("t_ampa_ms, t_gaba_ms, tau_ampa, tau_gaba, t_eval, expected_result", test_data)

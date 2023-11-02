@@ -5,7 +5,7 @@ import pickle
 import importlib.resources as pkg_resources
 from numpy import array
 import numpy as np
-from wslfp import lfp_amplitude_function
+from src import lfp_amplitude_function
 
 class WSLFP:
     def __init__(self, xs, ys, zs, elec_coords, alpha=1.65, tau_ampa_ms=6, tau_gaba_ms=0):
@@ -88,6 +88,8 @@ class WSLFP:
         # ampa has to be equal to or smaller than eval
         # for a range of ampa, if eval is within range, use linear/quadratic interpolation
         # if not, raise exception
+        interp_ampa = None
+
         for t in [np.min(t_eval_ms), np.max(t_eval_ms)]:
             if len(t_ampa_ms) == 1:
                 if t > t_ampa_ms[0]:
@@ -96,7 +98,6 @@ class WSLFP:
                 raise Exception("ampa not valid")
             else:
                 interp_ampa = interp1d(t_ampa_ms, ampa, kind= 'quadratic')
-
         return interp_ampa
 
             #else:
@@ -110,7 +111,7 @@ class WSLFP:
             else:
                 interp_gaba = interp1d(t_gaba_ms, gaba, kind= 'quadratic')
         return interp_gaba
-        
+       
  
          
 
