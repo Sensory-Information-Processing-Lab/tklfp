@@ -2,167 +2,35 @@ import numpy as np
 import pytest
 from src import WSLFP
 
-# @pytest.mark.parametrize (
-#     "t_ampa, t_gaba, t_eval, success",
-#     ([10], [4], [10], True),
-#     ([5], [5], [10], False),
-#     ([10], [4.1], [10], False),
-#     ([9.9], [4], [10], False),
-#     ([9.9, 10.1], [4], [10], True),
-#     ([11], [5], [11], True),
-#     ([2], [8], [6], False),
-#     ([7, 8, 9], [3, 4, 5], [10, 20, 30], True),  # Increasing
-#     ([10, 10, 10], [4, 4, 4], [10, 20, 30], True),  # Increasing
-#     ([10, 10, 10], [4, 4, 4], [30, 20, 10], False),  # Non-increasing
-#     ([10, 10, 10], [4, 4, 4], [10, 10, 10], True),  # Increasing
-#     ([10, 10, 10], [4, 4, 4], [5, 10, 15], False),  # Non-increasing
-#)
-
-# Create a fixture for a sample WSLFP object
-# @pytest.fixture
-# def sample_wslfp():
-#     xs = np.array([1, 2, 3])
-#     ys = np.array([4, 5, 6])
-#     zs = np.array([7, 8, 9])
-#     elec_coords = np.array([[1, 1, 1], [2, 2, 2]])
-#     wslfp_obj = WSLFP(xs, ys, zs, elec_coords)
-#     return wslfp_obj
-
-
-
-# Test the compute_gaba_curr method
-# def test_compute_gaba_curr(sample_wslfp):
-#     t_gaba_ms = np.array([1.0, 2.0, 3.0])
-#     tau_gaba = 0.5
-#     t_eval_ms = 2.0
-#     gaba = np.array([-1,-1,-1])
-#     gaba_curr = sample_wslfp.compute_gaba_curr(gaba, t_gaba_ms, tau_gaba, t_eval_ms)
-#     print(gaba_curr.type())
-#     assert isinstance(gaba_curr, float)  # Check if the result is a float
-
-# Test the compute_ampa_curr method
-# def test_compute_ampa_curr(sample_wslfp):
-#     t_ampa_ms = np.array([1.0, 2.0, 3.0])
-#     tau_ampa = 0.5
-#     t_eval_ms = 2.0
-#     ampa = [1,1,1]
-#     ampa_curr = sample_wslfp.compute_ampa_curr(ampa, t_ampa_ms, tau_ampa, t_eval_ms)
-#     assert isinstance(ampa_curr, float)  # Check if the result is a float
-
-# Test the lfp_ws_proxy method
-# def test_lfp_ws_proxy(sample_wslfp):
-#     t_ampa_ms = np.array([1.0, 2.0, 3.0])
-#     t_gaba_ms = np.array([0.5, 1.5, 2.5])
-#     tau_ampa = 0.5
-#     tau_gaba = 0.2
-#     t_eval = 2.0
-#     lfp_ws = sample_wslfp.lfp_ws_proxy(t_ampa_ms, t_gaba_ms, tau_ampa, tau_gaba, t_eval)
-#     assert isinstance(lfp_ws, float)  # Check if the result is a float
-
-# test_data = [
-#     (np.array([1.0, 2.0, 3.0]), np.array([0.5, 1.5, 2.5]), 0.5, 0.2, 2.0, True),
-#     (np.array([1.0, 2.0, 3.0]), np.array([0.5, 1.5, 2.5]), 0.5, 0.2, 2.0, False),  # Add more test cases as needed
-# ]
-def test_compute_ampa():
-    xs = np.array([1, 2, 3])
-    ys = np.array([4, 5, 6])
-    zs = np.array([7, 8, 9])
+@pytest.mark.parametrize(
+    "ampa_times, gaba_times, t_evals, success, lfp_increasing",
+    [
+        ([0, 1, 2, 3, 4], [0, 1, 2, 3, 4], [0, 1, 2, 3, 4], False, False),  # Valid times, should pass
+        ([5, 6, 7, 8, 9], [5, 6, 7, 8, 9], [10, 11, 12], False, False),  # t_evals out of range, should fail
+        ([1, 2, 4], [1, 2, 10], [9], False, False),  # length of time and current array must equal
+        ([3, 2, 1], [3, 2, 1], [2], False, False),  # Non-increasing order, should fail
+        ([], [], [], False, False),  # Empty arrays, should fail
+        ([1, 5, 9, 12, 17], [1, 3, 5, 9, 12], [8, 11], True, True),
+        ([1, 5, 9, 12, 17], [1, 3, 5, 9, 12], [], False, False),
+        ([2, 4, 6, 23, 25], [7, 10, 15, 21, 25], [12, 20, 24], True, True)
+    ]
+)
+def test_wslfp_time_ranges(ampa_times, gaba_times, t_evals, success, lfp_increasing):
+    # Dummy data for currents and coordinates
+    ampa_currents = gaba_currents = np.array([1, 2, 3, 4, 5])
+    xs = ys = zs = np.array([1, 2, 3])
     elec_coords = np.array([[1, 1, 1], [2, 2, 2]])
-    sample = WSLFP(xs, ys, zs, elec_coords)
-    ampa = np.array([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]])
-    t_ampa_ms = np.array([5, 15, 20])
-    t_eval_ms = np.array([11, 15, 18])
-    results = [sample._compute_ampa_curr(ampa, t_ampa_ms, sample.tau_ampa_ms, t) for t in t_eval_ms]
-    
-    # Check results
-    for ampa_curr in results:
-        print(ampa_curr)
-        assert isinstance(ampa_curr, np.ndarray) and ampa_curr.dtype == np.float64
 
-def test_compute_gaba():
-    xs = np.array([1, 2, 3])
-    ys = np.array([4, 5, 6])
-    zs = np.array([7, 8, 9])
-    elec_coords = np.array([[1, 1, 1], [2, 2, 2]])
-    sample = WSLFP(xs, ys, zs, elec_coords)
-    gaba = np.array([[1.0, 1.0, 1.0], [1.5, 1.5, 1.5]])
-    t_gaba_ms = np.array([5,15, 20])
-    t_eval_ms = np.array([11,15, 18])
-    results = [sample._compute_ampa_curr(gaba, t_gaba_ms, sample.tau_gaba_ms, t) for t in t_eval_ms]
-    
-    # Check results
-    for gaba_curr in results:
-        print(gaba_curr)
-        assert isinstance(gaba_curr, np.ndarray) and gaba_curr.dtype == np.float64
-
-def test_compute_lfp():
-    xs = np.array([1, 2, 3])
-    ys = np.array([4, 5, 6])
-    zs = np.array([7, 8, 9])
-    elec_coords = np.array([[1, 1, 1], [2, 2, 2]])
-    sample = WSLFP(xs, ys, zs, elec_coords)
-    ampa = np.array([1.0, 2.0, 3.0])
-    t_ampa_ms = np.array([5, 15, 20])
-    gaba = np.array([1.0, 2.0, 3.0])
-    t_gaba_ms = np.array([5,15, 20])
-    t_eval_ms = np.array([11,15, 18])
-    compute_lfp = sample._lfp_ws_proxy(ampa, gaba, t_ampa_ms, t_gaba_ms, sample.tau_ampa_ms, sample.tau_gaba_ms, t_eval_ms[0])
-    ampa_shifted = ampa[1]  # Assuming t_eval_ms - tau_ampa is close to the second time point
-    gaba_shifted = gaba[1]
-    expected_lfp = np.maximum(np.sum(ampa_shifted) - np.sum(gaba_shifted), 0.0)
-    assert np.isclose(compute_lfp, expected_lfp), f"Expected {expected_lfp}, but got {compute_lfp}"
-
-def is_increasing(arr):
-    """Check if a given array is strictly increasing."""
-    return np.all(np.diff(arr) > 0)
-
-def test_timepoints_increasing():
-    # Test with an increasing array
-    xs = np.array([1, 2, 3])
-    ys = np.array([4, 5, 6])
-    zs = np.array([7, 8, 9])
-    elec_coords = np.array([[1, 1, 1], [2, 2, 2]])
-    sample = WSLFP(xs, ys, zs, elec_coords)
-    ampa = np.array([1.0, 2.0, 3.0])
-    t_ampa_ms = np.array([5, 15, 20])
-    gaba = np.array([1.0, 2.0, 3.0])
-    t_gaba_ms = np.array([5,15, 20])
-    t_eval_ms = np.array([11,15, 18])
-    assert is_increasing(t_ampa_ms), f"Expected {t_ampa_ms} to be increasing"
-    assert is_increasing(t_gaba_ms), f"Expected {t_gaba_ms} to be increasing"
-    assert is_increasing(t_eval_ms), f"Expected {t_eval_ms} to be strictly increasing"
-
-# Use the @pytest.mark.parametrize decorator to run the test with each set of data
-# @pytest.mark.parametrize("t_ampa_ms, t_gaba_ms, tau_ampa, tau_gaba, t_eval, expected_result", test_data)
-# def test_lfp_ws_proxy_negative_sum(sample_wslfp, t_ampa_ms, t_gaba_ms, tau_ampa, tau_gaba, t_eval, expected_result):
-#     # Check if the sum of ampa and gaba is negative
-#     ampa_sum = np.sum(sample_wslfp.compute_ampa_curr(t_ampa_ms, tau_ampa, t_eval))
-#     gaba_sum = np.sum(sample_wslfp.compute_gaba_curr(t_gaba_ms, tau_gaba, t_eval))
-#     total_sum = ampa_sum - gaba_sum
-    
-#     # Check if the result matches the expected outcome
-#     assert (total_sum < 0) == expected_result, f"Expected result: {expected_result}, Actual result: {total_sum < 0}"
-
-# Add more test cases as needed
-
-# Run the tests with pytest
-if __name__ == "__main__":
-    pytest.main()
+    wslfp = WSLFP(xs, ys, zs, elec_coords, ampa_times, ampa_currents, gaba_times, gaba_currents)
+    if success:
+        try:
+            lfp_values = wslfp.calculate_lfp(t_evals)
+            print("Calculated LFP values:", lfp_values)
+            assert lfp_increasing == np.all(np.diff(lfp_values) >= 0), "LFP increasing order does not match expectation"
+        except ValueError:
+            assert False, "Test expected to succeed but failed"
+    else:
+        with pytest.raises(ValueError):
+            wslfp.calculate_lfp(t_evals)
 
 
-
-# @pytest.mark.parametrize (
-#     "t_ampa, t_gaba, t_eval, success",
-#     ([10], [4], [10], True),
-#     ([5], [5], [10], False),
-#     ([10], [4.1], [10], False),
-#     ([9.9], [4], [10], False),
-#     ([9.9, 10.1], [4], [10], True),
-#     ([11], [5], [11], True),
-#     ([2], [8], [6], False),
-#     ([7, 8, 9], [3, 4, 5], [10, 20, 30], True),  # Increasing
-#     ([10, 10, 10], [4, 4, 4], [10, 20, 30], True),  # Increasing
-#     ([10, 10, 10], [4, 4, 4], [30, 20, 10], False),  # Non-increasing
-#     ([10, 10, 10], [4, 4, 4], [10, 10, 10], True),  # Increasing
-#     ([10, 10, 10], [4, 4, 4], [5, 10, 15], False),  # Non-increasing
-#)
