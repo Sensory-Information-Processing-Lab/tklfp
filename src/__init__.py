@@ -8,118 +8,60 @@ import numpy as np
 from src import lfp_amplitude_function
 
 class WSLFP:
-    def __init__(self, xs, ys, zs, elec_coords, alpha=1.65, tau_ampa_ms=6, tau_gaba_ms=0):
+    def __init__(self, xs, ys, zs, elec_coords, ampa_times, ampa_currents, gaba_times, gaba_currents, alpha=1.65, tau_ampa_ms=6, tau_gaba_ms=0):
         """xs, ys, zs are n_neurons-length 1D arrays
         elec_coords is a (n_elec, 3) array
         [[1, 1, 1],
          [2, 2, 2]] """
-        self.a = self._amplitude(xs, ys, zs, elec_coords)
+        self.xs = xs
+        self.ys = ys
+        self.zs = zs
+        self.elec_coords = elec_coords
+        self.ampa_times = ampa_times
+        self.ampa_currents = ampa_currents
+        self.gaba_times = gaba_times
+        self.gaba_currents = gaba_currents
         self.alpha = alpha
         self.tau_ampa_ms = tau_ampa_ms
         self.tau_gaba_ms = tau_gaba_ms
-
-    def _amplitude(self, xs, ys, zs, elec_coords):
-        pass
-
-    #def compute(ampa: np.ndarray, t_ampa_ms, gaba: np.ndarray, t_gaba_ms, t_eval_ms: np.ndarray):
-        """_summary_
-​
-        Parameters
-        ----------
-        ampa : np.ndarray
-            (n_timepoints, n_neurons)  e.g., 5 timepoints * 1000 neurons => 5000
-        t_ampa_ms : np.ndarray
-            (n_timepoints), e.g., [1, 2, 3, 4, 5]
-        gaba : np.ndarray
-            (n_timepoints, n_neurons)
-        t_gaba_ms : _type_
-            _description_
-        t_eval_ms : _type_
-            _description_
-​
-        Example
-        -------
-        # just 1 timepoint
-        lfp = wslfp.compute(..., t_gaba_ms=[now_ms], t_eval_ms=[now_ms])
-        # multiple timepoint
-        lfp = wslfp.compute(..., t_gaba_ms=[multiple, gaba, measurements], t_eval_ms=[a, whole, bunch, of, timepoints])
-        """
-
-        #try:
-           # _check_timepoints(t_ampa_ms, t_gaba_ms, t_eval_ms)
     
-    # 1. combine check timepoints to compute curr
-    # 2.
-    
-    #substract tau from t_eval NEW CODE
-    def _compute_gaba_curr(self, gaba, t_gaba_ms, tau_gaba, t_eval_ms): # evaluate at 1 timepoint, so t_eval_ms is a float
-        gaba = np.array(gaba)
-        #row = np.where(t_gaba_ms == t_eval_ms) 
-        # #use interpolation
-        gaba_interp = self._check_gaba_timepoints(gaba, t_gaba_ms, t_eval_ms, tau_gaba)
-        
-        return gaba_interp(t_eval_ms) #return gaba currents of all neurons at t_eval
-
-    #def compute_ampa_curr(self, ampa, t)
-    
-
-    def _compute_ampa_curr(self, ampa, t_ampa_ms, tau_ampa, t_eval_ms): 
-        ampa = np.array(ampa)
-        #np.substract(ampa_time_arr, tau_ampa)
-        ampa_interp = self._check_ampa_timepoints(ampa, t_ampa_ms, t_eval_ms, tau_ampa)
-        return ampa_interp(t_eval_ms)
-
-    def _lfp_ws_proxy(self, ampa, gaba, t_ampa, t_gaba, tau_ampa, tau_gaba, t_eval):
-        ampa_sum = np.sum(self._compute_ampa_curr(ampa, t_ampa, tau_ampa, t_eval))
-        gaba_sum = np.sum(self._compute_gaba_curr(gaba, t_gaba, tau_gaba, t_eval))
-        
-        amp = lfp_amplitude_function.compute_amp() #fill in parameters
-        lfp_ws = amp * np.maximum(ampa_sum - gaba_sum, 0.0);
-        return lfp_ws
-
-
-    def _check_ampa_timepoints(self, ampa, t_ampa_ms, t_eval_ms, tau_ampa): 
-        # need exact timepoints if just one measurement is given. Otherwise, let interpolation throw an error
-        # when out of range
-        # check t_ampa_ms: ranging from at least tau_ampa ms before the first eval point
-        # up to 6 ms before the last eval point
-
-        # check if gaba is at least 6 ms before eval
-        # ampa has to be equal to or smaller than eval
-        # for a range of ampa, if eval is within range, use linear/quadratic interpolation
-        # if not, raise exception
-        interp_ampa = None
-
-        for t in [np.min(t_eval_ms), np.max(t_eval_ms)]:
-            if len(t_ampa_ms) == 1:
-                if t > t_ampa_ms[0]:
-                    raise Exception("ampa not valid")
-            elif t - tau_ampa < np.min(t_ampa_ms) or t - tau_ampa > np.max(t_ampa_ms):
-                raise Exception("ampa not valid")
+    def get_current(self, times, currents, t_eval, kind='linear'):
+        if len(times) != len(currents):
+            raise ValueError("Length of times and currents arrays must be equal.")
+        if len(times) == 1:
+            if np.all(times[0] == t_eval):
+                return np.full_like(t_eval, currents[0])
             else:
-                interp_ampa = interp1d(t_ampa_ms, ampa, kind= 'quadratic')
-        return interp_ampa
+                raise ValueError("Evaluation time does not match the single available time point.")
+        else:
+            if np.any(t_eval < times[0]) or np.any(t_eval > times[-1]):
+                raise ValueError("Evaluation time is out of the current data range.")
+            interpolate = interp1d(times, currents, kind=kind, bounds_error=True)
+            return interpolate(t_eval)
+    
+    def normalize(self, data):
+        return (data - np.min(data)) / (np.max(data) - np.min(data))
 
-            #else:
-                #t_ampa_chosen = interp1d(t_ampa_ms, t_eval_ms, kind = int)
-                #if t > t_ampa_chosen:
-                    #raise Exception("ampa not valid")
-    def _check_gaba_timepoints(self, gaba, t_gaba_ms, t_eval_ms, tau_gaba) :
-        for t in [np.min(t_eval_ms), np.max(t_eval_ms)]:
-            if t - tau_gaba < np.min(t_gaba_ms) or t - tau_gaba > np.max(t_gaba_ms):
-                raise Exception("gaba not valid")
-            else:
-                interp_gaba = interp1d(t_gaba_ms, gaba, kind= 'quadratic')
-        return interp_gaba
-       
- 
-         
+    def calculate_lfp(self, t_evals):
+        t_evals = np.array(t_evals)
+        if len(t_evals) == 0:
+            raise ValueError("Evaluation time is not given.")
+        if len(self.ampa_times) == 0 or len(self.gaba_times) == 0:
+            raise ValueError("AMPA times and GABA times cannot be empty")
+        if not np.all(np.diff(self.ampa_times) >= 0):
+            raise ValueError("AMPA times are not in increasing order")
+        if not np.all(np.diff(self.gaba_times) >= 0):
+            raise ValueError("GABA times are not in increasing order")
+        if np.any(t_evals - self.tau_ampa_ms < self.ampa_times[0]) or np.any(t_evals - self.tau_ampa_ms > self.ampa_times[-1]):
+            raise ValueError("Some evaluation times are out of the AMPA time range.")
+        if np.any(t_evals - self.tau_gaba_ms < self.gaba_times[0]) or np.any(t_evals - self.tau_gaba_ms > self.gaba_times[-1]):
+            raise ValueError("Some evaluation times are out of the GABA time range.")
+        ampa_currents = np.array([self.get_current(self.ampa_times, self.ampa_currents, t_eval - self.tau_ampa_ms) for t_eval in t_evals])
+        gaba_currents = np.array([self.get_current(self.gaba_times, self.gaba_currents, t_eval - self.tau_gaba_ms) for t_eval in t_evals])
+        ws = ampa_currents - self.alpha * gaba_currents
+        amplitudes = lfp_amplitude_function.compute_amp([[1,1,1]], [[2,2,2]], [[5,5,5]])
+        lfp_normalized = self.normalize(amplitudes * ws)
+        return lfp_normalized
+        
 
-
-        # if not ampa_valid:
-        #     raise Exception("ampa not valid")
-        # check t_gaba_ms: ranging from tau_gaba before the first eval point
-        # up to the last eval point
-        # if not gaba_valid:
-        #     raise Exception("gaba not valid")
-
+    
