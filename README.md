@@ -1,7 +1,5 @@
 # wslfp
 
-[![DOI](https://zenodo.org/badge/440986279.svg)](https://zenodo.org/badge/latestdoi/440986279)
-
 This is a lightweight package for computing the LFP approximation from 
 [Mazzoni et al., 2015](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1004584). 
 

@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from src import WSLFP
+from wslfp import WSLFP
 import matplotlib.pyplot as plt
 
 @pytest.mark.parametrize(
