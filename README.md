@@ -33,11 +33,11 @@ The `TKLFP` constructor can also take an `orientation` argument which represents
 The default is `[0, 0, 1]`, indicating that the positive z axis is "up."
 In the case your population isn't a sheet of neurons with uniform orientation (for a curved cortical area, for example), you can pass an N_n by 3 array containing the individual orientation vectors for all the neurons.
 
+## When to use
+According to Mazzoni et al., 2015, the WSLFP method is a good proxy for LFP when:
+- There's enough network activity for the LFP to be sizable
+- Morphologies are sufficiently "pyramidal," i.e., the centers of GABA and AMPA dendritic bushes are sufficiently separated (>= 150 μm)
+
 ## Future development
-The package uses [parameters from the original 2020 paper](https://github.com/kjohnsen/tklfp/blob/master/notebooks/param_prep.ipynb) by default. This can be changed by passing in an alternate parameter dictionary on initialization:
-```python
-tklfp = TKLFP(..., params=new_params)
-```
-
-The new params must have the same content as the default [`tklfp.params2020`](https://github.com/kjohnsen/tklfp/blob/master/tklfp/__init__.py#:~:text=_sig_i%20%3D%202.1-,params2020%20%3D,-%7B). The `A0_by_depth` params are scipy interpolation objects, but could theoretically be any callable that will return A0 (in μV) for an arbitrary depth (in mm).
-
+These features might be useful to add in the future:
+- amplitude and $alpha$ that vary by axon length as well as by recording position
