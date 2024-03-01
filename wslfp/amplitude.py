@@ -3,7 +3,7 @@ from importlib import resources
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import beta
-from scipy.interpolate import LinearNDInterpolator, interpn
+from scipy.interpolate import LinearNDInterpolator
 
 
 def aussel18(r_um, d_um, L_um=250, sigma=0.3):
