@@ -1,5 +1,9 @@
 # How to contribute
 
+- Use [Ruff](https://docs.astral.sh/ruff/) and turn on autoformatting to enforce consistent style
+- Pay attention to Ruff's linting messages and minimize them, though we don't require perfect linting
+- Write tests for new features and bug fixes
+
 ## Did you find a bug?
 
 * Ensure the bug was not already reported by searching on GitHub under Issues.
