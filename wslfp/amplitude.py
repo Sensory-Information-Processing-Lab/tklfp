@@ -18,6 +18,19 @@ def aussel18_mod(r_um, d_um, L_um=250, sigma=0.3):
     return (L_um * costheta) / (4 * np.pi * sigma * dist)
 
 
+def mazzoni15_pop(r_um, d_um, L_um=250, sigma=0.3):
+    rdf_samples = np.load(resources.files("wslfp") / "mazzoni15-rdf.npy")
+    pos_interp = LinearNDInterpolator(rdf_samples[:, :2], rdf_samples[:, 2])
+    d_um_sign = np.sign(d_um)
+    f_interp = pos_interp(r_um, np.abs(d_um)) * d_um_sign
+    return np.nan_to_num(f_interp)
+
+
+def mazzoni15_nrn(r_um, d_um, L_um=250, sigma=0.3):
+    # scale values optimized in notebooks/amplitude_comparison.ipynb
+    return mazzoni15_pop(r_um * 1.2981119, d_um * 1.21810743, L_um, sigma)
+
+
 def mazzoni15(r_um, d_um, L_um=250, sigma=0.3):
     # params_file = resources.open_binary("wslfp", "mazzoni15-beta-params.npz")
     params = np.load(resources.files("wslfp") / "mazzoni15-beta-params.npz")

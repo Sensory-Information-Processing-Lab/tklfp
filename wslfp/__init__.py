@@ -4,7 +4,13 @@ import numpy as np
 from attrs import define, field
 from scipy.interpolate import PchipInterpolator
 
-from wslfp.amplitude import aussel18, aussel18_mod, mazzoni15
+from wslfp.amplitude import (
+    aussel18,
+    aussel18_mod,
+    mazzoni15_nrn,
+    mazzoni15_pop,
+    plot_amp,
+)
 from wslfp.spk2curr import spikes_to_biexp_currents
 
 
