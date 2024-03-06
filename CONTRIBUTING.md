@@ -3,6 +3,11 @@
 - Use [Ruff](https://docs.astral.sh/ruff/) and turn on autoformatting to enforce consistent style
 - Pay attention to Ruff's linting messages and minimize them, though we don't require perfect linting
 - Write tests for new features and bug fixes
+- After updating the README, run
+    ```sh
+    jupyter nbconvert README.ipynb --to markdown
+    ```
+    and commit the resulting `README.md` and `README_files` directory
 
 ## Did you find a bug?
 
