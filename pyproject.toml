@@ -44,4 +44,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 addopts = "-q --nbmake"
-testpaths = ["tests", "notebooks/demo.ipynb"]
+testpaths = ["tests", "README.ipynb"]
