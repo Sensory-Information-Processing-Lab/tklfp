@@ -1,3 +1,6 @@
+# custom
+.old/*
+
 .pypirc
 *.bak
 .gitattributes
