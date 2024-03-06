@@ -1,6 +1,9 @@
-# wslfp
+# wslfp — Weighted Sum Local Field Potentials
 
-This is a lightweight package for computing the LFP proxy from [Mazzoni, Lindén *et al*., 2015](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1004584). 
+This is a lightweight package for computing WSLFP: the weighted sum of synaptic currents LFP proxy from [Mazzoni, Lindén *et al*., 2015](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1004584). 
+WSLFP lets you approximate LFP fairly well from simulations of point neurons in a typical cortical configuration (pyramidal cells and interneurons) without the need for expensive, multi-compartment neuron simulations.
+Given the AMPA and GABA synaptic currents onto pyramidal cells, `wslfp` will compute WSLFP for multiple time points and recording locations via a fast, vectorized implementation.
+Plus, if you are really impatient and don't even want to [simulate the synaptic currents](#point-neuron-network-simulation), `wslfp` facilitates the [synthesis of said currents from spikes alone](#synthesizing-currents-from-spikes).
 
 The authors argue WSLFP is a good proxy for LFP when:
 - There's enough network activity for the LFP to be sizable
@@ -319,7 +322,7 @@ lfp_calc_pop = wslfp.from_xyz_coords(
 )
 ```
 
-## Computing from currents
+### Computing from currents
 
 We then compute the LFP signal from the synaptic currents we recorded during the simulation.
 For demonstration purposes, we use again use both the population and per-neuron versions:
