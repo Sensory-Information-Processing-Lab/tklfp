@@ -2,9 +2,10 @@
 
 This is a lightweight package for computing the LFP proxy from [Mazzoni, Lindén *et al*., 2015](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1004584). 
 
-According to Mazzoni et al., 2015, the WSLFP method is a good proxy for LFP when:
+The authors argue WSLFP is a good proxy for LFP when:
 - There's enough network activity for the LFP to be sizable
-- Morphologies are sufficiently "pyramidal," i.e., the centers of GABA and AMPA dendritic bushes are sufficiently separated ($\geq 150$ μm)
+- Morphologies are sufficiently "pyramidal," i.e., the centers of GABA and AMPA dendritic bushes are sufficiently separated ($\geq 150$ μm) to generate a dipole moment
+- Not recording right at the dipole inversion depth
 
 
 ## Installation
@@ -22,13 +23,10 @@ import wslfp
 # initialize calculator from electrode and current source coordinates
 lfp_calc = wslfp.from_xyz_coords(elec_coords, [neuron|population_center]_coords, amp_func=wslfp.mazzoni15)
 
-# get currents
-################
-# from simulation
+# get currents from simulation
 t_ms = syn_monitor.t / b2.ms
 I_ampa = syn_monitor.I_ampa.T
 I_gaba = syn_monitor.I_gaba.T
-
 # or from spikes
 I_ampa = wslfp.spikes_to_biexp_currents(t_ms, t_spk_exc, i_spk_exc, J, 2, 0.4)
 I_gaba = wslfp.spikes_to_biexp_currents(t_ms, t_spk_inh, i_spk_inh, J, 5, 0.25)
@@ -48,10 +46,9 @@ lfp = lfp_calc.calculate(
 ### Point neuron network simulation
 
 First we need a point neuron simulation to approximate the LFP for.
-We'll use a balanced E/I network implementation [from the Neuronal Dynamics textbook](https://neuronaldynamics-exercises.readthedocs.io/en/latest/_modules/neurodynex3/brunel_model/LIF_spiking_network.html#simulate_brunel_network).
+Here we adapt a balanced E/I network implementation [from the Neuronal Dynamics textbook](https://neuronaldynamics-exercises.readthedocs.io/en/latest/_modules/neurodynex3/brunel_model/LIF_spiking_network.html#simulate_brunel_network).
 Note that we record synaptic currents only from pyramidal cells, since contributions from interneurons are insignificant.
-
-🚧 TODO: get currents from external input as well
+For simplicity, we are ignoring currents produced by the external input; for maximum realism you would want to account for all postsynaptic currents.
 
 <details>
 <summary>🔍 Click to see Brian simulation code</summary>
@@ -108,12 +105,6 @@ lif_dynamics = """
     I_gaba : amp
 """
 
-syn_eqs = """
-    dI_syn_syn/dt = (s - I_syn)/tau_dsyn : amp
-    I_syn_post = I_syn_syn : amp (summed)
-    ds/dt = -s/tau_rsyn : amp
-"""
-
 neurons = b2.NeuronGroup(
     N_tot,
     model=lif_dynamics,
@@ -131,17 +122,20 @@ if random_vm_init:
     )
 else:
     neurons.v = v_rest
+
 excitatory_population = neurons[:N_excit]
 inhibitory_population = neurons[N_excit:]
+
+syn_eqs = """
+    dI_syn_syn/dt = (s - I_syn_syn)/tau_dsyn : amp (clock-driven)
+    I_TYPE_post = I_syn_syn : amp (summed)
+    ds/dt = -s/tau_rsyn : amp (clock-driven)
+"""
 
 exc_synapses = b2.Synapses(
     excitatory_population,
     target=neurons,
-    model="""
-        dI_syn_syn/dt = (s - I_syn_syn)/tau_dsyn : amp
-        I_ampa_post = I_syn_syn : amp (summed)
-        ds/dt = -s/tau_rsyn : amp
-    """,
+    model=syn_eqs.replace("TYPE", "ampa"),
     on_pre="s += J_excit",
     delay=synaptic_delay,
     namespace={"tau_rsyn": 0.4 * b2.ms, "tau_dsyn": 2 * b2.ms},
@@ -151,11 +145,7 @@ exc_synapses.connect(p=connection_probability)
 inhib_synapses = b2.Synapses(
     inhibitory_population,
     target=neurons,
-    model="""
-        dI_syn_syn/dt = (s - I_syn_syn)/tau_dsyn : amp
-        I_gaba_post = I_syn_syn : amp (summed)
-        ds/dt = -s/tau_rsyn : amp
-    """,
+    model=syn_eqs.replace("TYPE", "gaba"),
     on_pre="s += J_inhib",
     delay=synaptic_delay,
     namespace={"tau_rsyn": 0.25 * b2.ms, "tau_dsyn": 5 * b2.ms},
@@ -185,28 +175,29 @@ net = b2.Network(
 net.run(0.5 * b2.second)
 ```
 
-    INFO       The synaptic equation for the variable I_syn_syn does not specify whether it should be integrated at every timestep ('clock-driven') or only at spiking events ('event-driven'). It will be integrated at every timestep which can slow down your simulation unnecessarily if you only need the values of this variable whenever a spike occurs. Specify the equation as clock-driven explicitly to avoid this warning. [brian2.synapses.synapses.clock_driven]
-    INFO       The synaptic equation for the variable s does not specify whether it should be integrated at every timestep ('clock-driven') or only at spiking events ('event-driven'). It will be integrated at every timestep which can slow down your simulation unnecessarily if you only need the values of this variable whenever a spike occurs. Specify the equation as clock-driven explicitly to avoid this warning. [brian2.synapses.synapses.clock_driven]
+    INFO       No numerical integration method specified for group 'synapses_1', using method 'exact' (took 0.15s). [brian2.stateupdaters.base.method_choice]
 
 
-    INFO       No numerical integration method specified for group 'synapses_1', using method 'exact' (took 0.25s). [brian2.stateupdaters.base.method_choice]
-    INFO       No numerical integration method specified for group 'synapses', using method 'exact' (took 0.12s). [brian2.stateupdaters.base.method_choice]
+    INFO       No numerical integration method specified for group 'synapses', using method 'exact' (took 0.09s). [brian2.stateupdaters.base.method_choice]
 
 
 </details>
 
+Now let's plot the resulting spike raster:
+
 
 ```python
-fig, ax = plt.subplots()
+fig, ax1 = plt.subplots()
 c_exc = "xkcd:tomato"
 c_inh = "xkcd:cerulean"
 t_spk_exc = spike_monitor.t[spike_monitor.i < N_excit] / b2.ms
 i_spk_exc = spike_monitor.i[spike_monitor.i < N_excit]
 t_spk_inh = spike_monitor.t[spike_monitor.i >= N_excit] / b2.ms
 i_spk_inh = spike_monitor.i[spike_monitor.i >= N_excit]
-ax.scatter(t_spk_exc, i_spk_exc, s=0.5, c=c_exc)
-ax.scatter(t_spk_inh, i_spk_inh, s=0.5, c=c_inh)
-ax.set(xlabel="time (ms)", ylabel="neuron index");
+ax1.scatter(t_spk_exc, i_spk_exc, s=0.5, c=c_exc, label="exc")
+ax1.scatter(t_spk_inh, i_spk_inh, s=0.5, c=c_inh, label="inh")
+ax1.legend()
+ax1.set(xlabel="time (ms)", ylabel="neuron index");
 ```
 
 
@@ -265,9 +256,9 @@ elec_coords[0:10]
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
 fig = plt.figure()
-ax = fig.add_subplot(projection="3d")
+ax1 = fig.add_subplot(projection="3d")
 apex_coords = exc_coords + [0, 0, 250]
-ax.scatter(*exc_coords.T, marker="^", color=c_exc, label="somata", alpha=0.3, s=10)
+ax1.scatter(*exc_coords.T, marker="^", color=c_exc, label="somata", alpha=0.3, s=10)
 apical_dendrites = np.stack([exc_coords, apex_coords], axis=1)
 assert apical_dendrites.shape == (N_excit, 2, 3)
 
@@ -275,18 +266,18 @@ assert apical_dendrites.shape == (N_excit, 2, 3)
 lines = Line3DCollection(
     apical_dendrites, color=c_exc, alpha=0.3, label="apical dendrites", linewidth=0.5
 )
-ax.add_collection(lines)
+ax1.add_collection(lines)
 
-ax.scatter(
+ax1.scatter(
     *elec_coords.T, marker="x", alpha=1, s=50, color="xkcd:charcoal", label="electrodes"
 )
-ax.legend()
+ax1.legend()
 ```
 
 
 
 
-    <matplotlib.legend.Legend at 0x7fedd1ff4bc0>
+    <matplotlib.legend.Legend at 0x7f30ea1c3290>
 
 
 
@@ -322,13 +313,13 @@ The default is `[0, 0, 1]`, indicating that the positive z axis is "up," towards
 ```python
 import wslfp
 
-wslfp_computer = wslfp.WSLFP.from_xyz_coords(
-    elec_coords, exc_coords, amp_func=wslfp.amplitude.aussel18
-)
-wslfp_computer_pop = wslfp.WSLFP.from_xyz_coords(
-    elec_coords, exc_coords.mean(axis=0), amp_func=wslfp.amplitude.mazzoni15
+lfp_calc = wslfp.from_xyz_coords(elec_coords, exc_coords, amp_func=wslfp.aussel18)
+lfp_calc_pop = wslfp.from_xyz_coords(
+    elec_coords, exc_coords.mean(axis=0), amp_func=wslfp.mazzoni15
 )
 ```
+
+## Computing from currents
 
 We then compute the LFP signal from the synaptic currents we recorded during the simulation.
 For demonstration purposes, we use again use both the population and per-neuron versions:
@@ -336,10 +327,15 @@ For demonstration purposes, we use again use both the population and per-neuron 
 
 ```python
 t_ms = current_monitor.t / b2.ms
-lfp = wslfp_computer.compute(
+lfp = lfp_calc.calculate(
     t_ms, t_ms, current_monitor.I_ampa.T, t_ms, current_monitor.I_gaba.T
 )
 ```
+
+    WARNING    /home/kyle/Dropbox (GaTech)/projects/wslfp/wslfp/__init__.py:78: UserWarning: Insufficient current data to interpolate for the requested times. Assuming 0 current for out-of-range times. Needed [-6.0, 493.9] ms, provided [0.0, 499.9] ms.
+      warnings.warn(
+     [py.warnings]
+
 
 
 ```python
@@ -376,7 +372,7 @@ plot_lfp(lfp, "per-neuron contributions à la Aussel 2018")
 
 
 ```python
-lfp_pop = wslfp_computer_pop.compute(
+lfp_pop = lfp_calc_pop.calculate(
     t_ms,
     t_ms,
     current_monitor.I_ampa.sum(axis=0),
@@ -392,32 +388,10 @@ plot_lfp(lfp_pop, title="currents summed over population à la Mazzoni 2015")
     
 
 
-
-```python
-print(len(exc_synapses.j))
-print(exc_synapses.N)
-# we have as many synapses as expected. Is the number of spikes right?
-print(np.mean(exc_synapses.N_outgoing))
-print(len(t_spk_exc))
-len(t_spk_exc) * np.mean(exc_synapses.N_outgoing)
-```
-
-    80638
-    <synapses.N: 80638>
-    101.6963218333788
-    2999
-
-
-
-
-
-    304987.269178303
-
-
-
-### Computing from spikes
+### Synthesizing currents from spikes
 `wslfp` provides functions to generate synaptic currents from spikes to avoid having to simulate synaptic dynamics.
-Let's compare the results with those above; they should be identical since we convolve the spikes with the exact same postsynaptic current kernels as those simulated as ODEs with Brian (see [`postsynaptic_currents.ipynb`](notebooks/postsynaptic_currents.ipynb) for more background).
+We do this by [convolving spikes with a biexponential curve](notebooks/postsynaptic_currents.ipynb) at each postsynaptic target.
+The computation requires spike times and source indices, as well as a connectivity/weight matrix to determine where and how much current to deliver for each spike. 
 
 
 ```python
@@ -426,450 +400,134 @@ from scipy import sparse
 
 J = sparse.lil_array((N_tot, N_tot))
 J[exc_synapses.i, exc_synapses.j] = J_excit
-J[inhib_synapses.i, inhib_synapses.j] = J_inhib
-J = J.tocsr()
+# careful with indexing: subgroup indexing (and thus synapse.i) starts over
+# again with 0, despite coming from subgroup starting at index N_excit
+J[inhib_synapses.i + N_excit, inhib_synapses.j] = J_inhib
+J = J.tocsr()[:, :N_excit]  # only need spikes onto pyramidal cells
 
-I_ampa = wslfp.spikes_to_biexp_currents(t_ms, t_spk_exc, i_spk_exc, J, 2, 0.4)
-I_gaba = wslfp.spikes_to_biexp_currents(t_ms, t_spk_inh, i_spk_inh, J, 5, 0.25)
-lfp_spike = wslfp_computer.compute(t_ms, t_ms, I_ampa, t_ms, I_gaba)
-assert np.allclose(lfp, lfp_spike)
-```
-
-
-    ---------------------------------------------------------------------------
-
-    AssertionError                            Traceback (most recent call last)
-
-    Cell In[55], line 11
-          9 I_ampa = wslfp.spikes_to_biexp_currents(t_ms, t_spk_exc, i_spk_exc, J, 2, 0.4)
-         10 I_gaba = wslfp.spikes_to_biexp_currents(t_ms, t_spk_inh, i_spk_inh, J, 5, 0.25)
-    ---> 11 lfp_spike = wslfp_computer.compute(t_ms, t_ms, I_ampa, t_ms, I_gaba)
-         12 assert np.allclose(lfp, lfp_spike)
-
-
-    File ~/Dropbox (GaTech)/projects/wslfp/wslfp/__init__.py:146, in WSLFP.compute(self, t_eval_ms, t_ampa_ms, I_ampa, t_gaba_ms, I_gaba, normalize)
-        144 def compute(self, t_eval_ms, t_ampa_ms, I_ampa, t_gaba_ms, I_gaba, normalize=True):
-        145     I_ampa = np.reshape(I_ampa, (-1, self.n_sources))
-    --> 146     assert I_ampa.shape == (
-        147         len(t_ampa_ms),
-        148         self.n_sources,
-        149     ), f"{I_ampa.shape} != ({len(t_ampa_ms)}, {self.n_sources})"
-        150     I_gaba = np.reshape(I_gaba, (-1, self.n_sources))
-        151     assert I_gaba.shape == (
-        152         len(t_gaba_ms),
-        153         self.n_sources,
-        154     ), f"{I_gaba.shape} != ({len(t_gaba_ms)}, {self.n_sources})"
-
-
-    AssertionError: (6250, 800) != (5000, 800)
-
-
-
-```python
-import numba
-
-
-@numba.njit
-def test(a, b):
-    return a * (b > 0)
-
-
-test(np.array([1, 2, 3, 4]), np.array([0, 1, 0, 1]))
-```
-
-
-
-
-    array([0, 2, 0, 4])
-
-
-
-
-```python
 I_ampa = wslfp.spikes_to_biexp_currents(
-    t_ms[2160:2161], t_spk_exc, i_spk_exc, J, 2, 0.4
+    t_ms, t_spk_exc, i_spk_exc, J, 2, 0.4, syn_delay_ms=synaptic_delay / b2.ms
 )
-I_ampa
-```
-
-    1758
-
-
-
-
-
-    array([[            nan,             nan,  1.17959333e-10,
-             7.97767644e-11,             nan,             nan,
-                        nan, -1.08470085e-10,             nan,
-                        nan,  4.72867460e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,  1.22601338e-10,  3.15527576e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,  2.64101057e-11,             nan,
-                        nan,             nan,  5.83779495e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -4.72121256e-11,             nan,
-                        nan,             nan,  1.27525314e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan, -1.14678450e-10,
-                        nan,             nan,             nan,
-             8.79773348e-12,  4.31005567e-11,  4.41411338e-11,
-                        nan,  1.34647195e-10,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan, -4.61022895e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  9.15561074e-11,
-                        nan,  3.08504168e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,  7.13445795e-11,             nan,
-                        nan,  6.67876197e-11, -7.15201340e-13,
-                        nan,             nan,  6.91384574e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,  5.25677325e-11,             nan,
-            -3.06567681e-11,             nan,             nan,
-            -8.67421570e-12,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -8.02394936e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  8.85883222e-11,
-                        nan,             nan,             nan,
-                        nan,             nan, -1.27182399e-10,
-                        nan,             nan,             nan,
-                        nan,  5.68532000e-11,             nan,
-                        nan,             nan, -2.76454286e-10,
-                        nan,             nan,             nan,
-                        nan,             nan,  2.90094019e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,  1.24625967e-10,             nan,
-             1.02568142e-10,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -7.79309995e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-             5.48653650e-11,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  1.37297336e-10,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-             1.20216493e-10,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-             2.77599661e-11,             nan,             nan,
-                        nan,  2.16132974e-11,  2.88856818e-11,
-                        nan,             nan,             nan,
-                        nan,  1.31211515e-11,             nan,
-                        nan,  1.19046176e-11,             nan,
-                        nan,             nan, -5.69270489e-11,
-                        nan,             nan,             nan,
-                        nan, -7.86962861e-11,             nan,
-                        nan,             nan,  8.01213272e-11,
-                        nan,             nan, -1.15679515e-10,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-             8.62196860e-11,             nan,             nan,
-                        nan,             nan,             nan,
-             5.41228059e-11,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -1.18398257e-10,             nan,
-                        nan,             nan,             nan,
-                        nan,  6.62941011e-12,             nan,
-            -4.84677783e-12,             nan, -1.49556023e-10,
-            -4.90218690e-11,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  3.37652635e-11,
-                        nan,             nan,             nan,
-             6.18256047e-11,             nan,             nan,
-                        nan,             nan,             nan,
-            -5.72851669e-11,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan, -5.28898746e-13,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -2.58653556e-10,             nan,
-            -4.94542669e-11,             nan,             nan,
-                        nan,             nan, -5.81094860e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-            -1.07870733e-10,             nan,             nan,
-                        nan,             nan,  9.11731664e-11,
-                        nan,             nan,  7.02243904e-11,
-                        nan,             nan,             nan,
-                        nan,             nan, -8.86578270e-12,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-             8.02309099e-11,  7.21076677e-11,             nan,
-                        nan,             nan,  3.25856407e-11,
-                        nan,             nan,             nan,
-            -4.84844539e-11,             nan,             nan,
-             8.11641635e-11, -3.45913048e-11,  3.76471656e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-             6.94327983e-11,             nan,             nan,
-                        nan,             nan,             nan,
-             5.49537227e-11, -1.12029587e-10,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-            -2.40909276e-10,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  2.98860047e-11,
-                        nan,             nan,             nan,
-                        nan,  6.28872865e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,  7.05548496e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-             1.18681706e-11,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -1.24132798e-11,             nan,
-                        nan,  7.10885641e-11,             nan,
-                        nan,             nan,  6.23807321e-11,
-                        nan,             nan,             nan,
-                        nan, -3.40448635e-11,             nan,
-                        nan,  1.33378130e-10,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-            -4.32335949e-11,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-             1.43533312e-10,             nan,             nan,
-             3.30410884e-11,             nan,             nan,
-             8.71136055e-11,             nan, -6.31249049e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -2.15317076e-11,             nan,
-             2.48107962e-12,             nan,  1.11473783e-10,
-                        nan,             nan,             nan,
-             6.13340577e-11,             nan,             nan,
-                        nan,  7.63036305e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,  3.27613451e-11, -1.33905154e-10,
-                        nan,  2.22079813e-11,             nan,
-                        nan,             nan, -7.10214982e-11,
-             1.00435408e-10,  1.08574369e-11,             nan,
-            -3.76873458e-11,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  4.34312840e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,  4.85153410e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,  1.11031920e-10,
-                        nan,             nan, -6.54030783e-12,
-                        nan,             nan,  9.44439501e-11,
-                        nan,             nan,             nan,
-             5.75979992e-11,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,  3.12825060e-11,             nan,
-             1.03585570e-10,             nan,             nan,
-                        nan,             nan,             nan,
-            -1.47436601e-10,  8.19205671e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,  7.17836856e-11,  5.08146899e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan, -1.42620932e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,  5.66752872e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan, -3.41638312e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,  4.78947650e-11,
-                        nan,             nan,  4.44748062e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-             9.71642102e-11, -3.75040920e-12,             nan,
-             4.76926031e-11,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -3.39449912e-11,  1.11436518e-10,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  7.29840105e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  2.06243372e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-             3.51494055e-11,             nan,             nan,
-                        nan,             nan,             nan,
-            -4.56274173e-11,             nan, -7.12031178e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,  2.72831256e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  1.28358283e-10,
-             9.51677883e-11, -9.60998831e-12,             nan,
-             2.24373789e-11,             nan,             nan,
-                        nan,  4.55998515e-12,  9.20073174e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,  9.78660249e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -5.54943557e-12,             nan,
-             6.60120469e-11,             nan,             nan,
-            -2.91957512e-10,             nan,             nan,
-            -1.06945409e-10,             nan,             nan,
-             1.61039193e-10,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan, -1.20878890e-10,
-                        nan,  4.25749687e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  4.12861895e-11,
-            -1.87274995e-10,             nan,             nan,
-                        nan,             nan,             nan,
-             7.09905860e-12,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -1.18284435e-10,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-             1.02881332e-10,             nan,             nan,
-            -1.44767240e-11,             nan,             nan,
-                        nan,  9.15534510e-11,             nan,
-                        nan,  3.51081993e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  5.57117019e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  6.76766119e-11,
-                        nan,             nan,             nan,
-                        nan, -8.04960775e-11,  5.38078971e-11,
-             3.61234446e-11,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  6.15307184e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,  3.20538386e-11,             nan,
-                        nan,  3.86718585e-11,             nan,
-             8.28112468e-11,  5.67140057e-11,             nan,
-                        nan,             nan,  9.28605245e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-            -1.26599724e-11,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -1.12909829e-10,             nan,
-                        nan,             nan,             nan,
-                        nan,  1.99724419e-11,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,  2.69592073e-11,
-                        nan,             nan,  4.75475064e-11,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -6.47043350e-11,             nan,
-                        nan,             nan,             nan,
-             6.38267742e-11,             nan,             nan,
-                        nan,             nan,             nan,
-             1.33298939e-10,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -1.84362520e-10,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan,             nan,             nan,
-                        nan, -4.04413131e-11,             nan,
-                        nan]])
-
-
-
-
-```python
-np.any(np.isnan(I_ampa), axis=1)[2160]
-```
-
-
-
-
-    True
-
-
-
-
-```python
-t_ms.shape
-```
-
-
-
-
-    (5000,)
-
-
-
-
-```python
-I_ampa_pop = wslfp.spikes_to_biexp_currents(t_ms, t_spk_exc, i_spk_exc, J_excit, 2, 0.4)
-I_gaba_pop = wslfp.spikes_to_biexp_currents(
-    t_ms, t_spk_inh, i_spk_inh, J_inhib, 5, 0.25
+I_gaba = wslfp.spikes_to_biexp_currents(
+    t_ms, t_spk_inh, i_spk_inh, J, 5, 0.25, syn_delay_ms=synaptic_delay / b2.ms
 )
-lfp_spike_pop = wslfp_computer_pop.compute()
-lfp_spike = wslfp_computer.compute(t_ms, t_ms, I_ampa, t_ms, I_gaba)
-assert np.allclose(lfp, lfp_spike)
+lfp_spike = lfp_calc.calculate(t_ms, t_ms, I_ampa, t_ms, I_gaba)
 ```
+
+    WARNING    /home/kyle/Dropbox (GaTech)/projects/wslfp/wslfp/__init__.py:78: UserWarning: Insufficient current data to interpolate for the requested times. Assuming 0 current for out-of-range times. Needed [-6.0, 493.9] ms, provided [0.0, 499.9] ms.
+      warnings.warn(
+     [py.warnings]
+
+
+We don't expect the two results to be exactly equal [because of the inexactness of numerical integration](notebooks/postsynaptic_currents.ipynb#biexponential-synaptic-currents).
+
+
+
+```python
+np.allclose(lfp_spike, lfp)
+```
+
+
+
+
+    False
+
+
+
+
+```python
+lfp_spike_pop = lfp_calc_pop.calculate(
+    t_ms, t_ms, I_ampa.sum(axis=1), t_ms, I_gaba.sum(axis=1)
+)
+np.allclose(lfp_spike_pop, lfp_pop)
+```
+
+
+
+
+    False
+
+
+
+This slight difference carries through to the LFP signal as well.
+In this case, where we actually did simulate the currents and can compare the two approaches, it's hard to say which is more *correct*.
+The convolution is exact, unlike the simulation's ODE integration, but the inexact simulated currents are the "ground truth" in terms of driving network activity.
+
+
+```python
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, layout="constrained")
+ax1.plot(t_ms, lfp.mean(axis=1), label="simulated currents", c="k")
+ax1.plot(
+    t_ms, lfp_spike.mean(axis=1), label="currents from spikes", linestyle=":", c="gray"
+)
+ax1.set(title="mean LFP with per-neuron contributions", yticks=[], ylabel="LFP (a.u.)")
+ax1.legend()
+ax2.plot(t_ms, lfp_pop.mean(axis=1), label="simulated currents", c="k")
+ax2.plot(
+    t_ms,
+    lfp_spike_pop.mean(axis=1),
+    label="currents from spikes",
+    linestyle=":",
+    c="gray",
+)
+ax2.set(
+    title="mean LFP with currents summed over population",
+    xlabel="t (ms)",
+    yticks=[],
+    ylabel="LFP (a.u.)",
+);
+```
+
+
+    
+![png](README_files/README_24_0.png)
+    
+
+
+The spectral properties are also very similar, the main difference apparently being that the convolution method has slightly higher power overall.
+
+
+```python
+from scipy.signal import welch
+
+fs = 1000
+fig, axs = plt.subplots(2, 1, layout="constrained", sharex=True)
+
+axs[0].semilogy(*welch(lfp.mean(axis=1), fs=fs), c="k", label="simulated currents")
+axs[0].semilogy(
+    *welch(lfp_spike.mean(axis=1), fs=fs),
+    c="gray",
+    linestyle=":",
+    label="currents from spikes",
+)
+axs[0].set(
+    ylabel="PSD [V²/Hz]",
+    title="PSD of mean LFP with per-neuron contributions",
+    yticks=[],
+)
+axs[0].legend()
+
+axs[1].semilogy(*welch(lfp_pop.mean(axis=1), fs=fs), c="k", label="simulated currents")
+axs[1].semilogy(
+    *welch(lfp_spike_pop.mean(axis=1), fs=fs),
+    c="gray",
+    linestyle=":",
+    label="currents from spikes",
+)
+axs[1].set(
+    ylabel="PSD [V²/Hz]",
+    xlabel="Frequency [Hz]",
+    title="PSD of mean LFP with currents summed over population",
+    yticks=[],
+);
+```
+
+
+    
+![png](README_files/README_26_0.png)
+    
+
 
 ## Future development
 These features might be useful to add in the future:
-- amplitude and $alpha$ that vary by axon length as well as by recording position
+- amplitude and $\alpha$ that vary by axon length as well as by recording position
