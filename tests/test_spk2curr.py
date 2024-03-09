@@ -27,7 +27,7 @@ def test_spikes_to_biexp_currents(delay, tau1, tau2, sparse_J, normalize, seed):
     J[i3, :] = row3
 
     if sparse_J:
-        J = sparse.csr_matrix(J)
+        J = sparse.csr_array(J)
 
     def s2c(t_spk, i_spk, threshold=0.01):
         return spikes_to_biexp_currents(
@@ -82,53 +82,6 @@ def test_spikes_to_biexp_currents(delay, tau1, tau2, sparse_J, normalize, seed):
     result = s2c([0], [i2])
     assert result[tau2 + delay, 1] > 0
     assert result[tau2 + delay, 2] < 0
-
-
-# def test_spikes_to_biexp_currents_with_syn_delay():
-#     t_eval_ms = np.array([0, 1, 2, 3, 4])
-#     t_spk_ms = np.array([0, 1, 2, 3, 4])
-#     i_spk = np.array([0, 1, 2, 3, 4])
-#     J = np.array(
-#         [
-#             [0, 1, 2, 3, 4],
-#             [5, 6, 7, 8, 9],
-#             [10, 11, 12, 13, 14],
-#             [15, 16, 17, 18, 19],
-#             [20, 21, 22, 23, 24],
-#         ]
-#     )
-#     tau1 = 10
-#     tau2 = 5
-#     syn_delay_ms = 2
-
-#     result = spikes_to_biexp_currents(
-#         t_eval_ms, t_spk_ms, i_spk, J, tau1, tau2, syn_delay_ms=syn_delay_ms
-#     )
-
-#     assert result.shape == (len(t_eval_ms), J.shape[1])
-#     assert np.all(
-#         np.diff(result, axis=0) >= 0
-#     ), "Resulting currents are not in increasing order"
-
-
-# def test_spikes_to_biexp_currents_with_invalid_tau():
-#     t_eval_ms = np.array([0, 1, 2, 3, 4])
-#     t_spk_ms = np.array([0, 1, 2, 3, 4])
-#     i_spk = np.array([0, 1, 2, 3, 4])
-#     J = np.array(
-#         [
-#             [0, 1, 2, 3, 4],
-#             [5, 6, 7, 8, 9],
-#             [10, 11, 12, 13, 14],
-#             [15, 16, 17, 18, 19],
-#             [20, 21, 22, 23, 24],
-#         ]
-#     )
-#     tau1 = 5
-#     tau2 = 10
-
-#     with pytest.raises(AssertionError):
-#         spikes_to_biexp_currents(t_eval_ms, t_spk_ms, i_spk, J, tau1, tau2)
 
 
 if __name__ == "__main__":

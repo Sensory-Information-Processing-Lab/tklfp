@@ -10,6 +10,9 @@ The authors argue WSLFP is a good proxy for LFP when:
 - Morphologies are sufficiently "pyramidal," i.e., the centers of GABA and AMPA dendritic bushes are sufficiently separated ($\geq 150$ μm) to generate a dipole moment
 - Not recording right at the dipole inversion depth
 
+*This software was developed by [Kyle Johnsen](https://kjohnsen.org), [Olivia Klemmer](https://www.linkedin.com/in/oliviaklemmer), [Chuyu (Alissa) Wang](https://www.linkedin.com/in/chuyu-wang), and [Aarav Shah](https://www.linkedin.com/in/aarav-shah-cs) in the [SIPLab](https://siplab.gatech.edu), led by Chris Rozell and Sankar Alagapan at Georgia Tech.*
+
+*For another point neuron LFP proxy implementation, see [`tklfp`](https://github.com/siplab-gt/tklfp).*
 
 ## Installation
 Simply install from pypi:
@@ -178,10 +181,8 @@ net = b2.Network(
 net.run(0.5 * b2.second)
 ```
 
-    INFO       No numerical integration method specified for group 'synapses_1', using method 'exact' (took 0.15s). [brian2.stateupdaters.base.method_choice]
-
-
-    INFO       No numerical integration method specified for group 'synapses', using method 'exact' (took 0.09s). [brian2.stateupdaters.base.method_choice]
+    INFO       No numerical integration method specified for group 'synapses_1', using method 'exact' (took 0.32s). [brian2.stateupdaters.base.method_choice]
+    INFO       No numerical integration method specified for group 'synapses', using method 'exact' (took 0.16s). [brian2.stateupdaters.base.method_choice]
 
 
 </details>
@@ -200,7 +201,7 @@ i_spk_inh = spike_monitor.i[spike_monitor.i >= N_excit]
 ax1.scatter(t_spk_exc, i_spk_exc, s=0.5, c=c_exc, label="exc")
 ax1.scatter(t_spk_inh, i_spk_inh, s=0.5, c=c_inh, label="inh")
 ax1.legend()
-ax1.set(xlabel="time (ms)", ylabel="neuron index");
+ax1.set(xlabel="time (ms)", ylabel="neuron index", title="spike raster");
 ```
 
 
@@ -280,7 +281,7 @@ ax1.legend()
 
 
 
-    <matplotlib.legend.Legend at 0x7f30ea1c3290>
+    <matplotlib.legend.Legend at 0x7efe22930e90>
 
 
 
@@ -297,28 +298,31 @@ We can either follow Mazzoni, Lindén *et al.*'s original approach of aggregatin
 The `WSLFPCalculator` computes relative coordinates between electrodes and current sources and stores the amplitude contribution of each source to the total signal.
 
 Different amplitude profiles are available and can be specified via the `amp_func` parameter:
-- `mazzoni15`: derived from [Fig. 2B of the original paper](https://doi.org/10.1371/journal.pcbi.1004584.g002).
+- `mazzoni15_pop`: derived from [Fig. 2B of the original paper](https://doi.org/10.1371/journal.pcbi.1004584.g002).
     The most accurate option since it was based on detailed simulations.
     It is most appropriate when each source represents a population of neurons since that is how the data was produced.
-- `mazzoni15_single`: has the same shape as `mazzoni15`, but is optimally shrunk so that the profile of individual neurons averaged out over a 250 μm-radius cylinder produces the population profile.
-- `aussel18`: uses the equation for contributions from individual neurons as described in [Aussel *et al.*, 2018](https://doi.org/10.1007/s10827-018-0704-x).
+- `mazzoni15_nrn`: has the same shape as `mazzoni15`, but is optimally shrunk and scaled so that the profile of individual neurons averaged out over a 250 μm-radius cylinder is as close as possible to the population profile.
+- `aussel18`: uses the closed-form equation for contributions from individual neurons described in [Aussel *et al.*, 2018](https://doi.org/10.1007/s10827-018-0704-x): $U = \frac{Lcos\theta}{4\pi\sigma r^2} (I_{syn_E} + I_{syn_I})$
 
+These amplitudes are averaged (rather than summed) across neurons or populations so that the scale of the resulting signal matches the paper (between about -0.1 and 0.1 μV for close recordings), regardless of how many neurons or populations are present.
 For a detailed comparison, see [`amplitude_comparison.ipynb`](notebooks/amplitude_comparison.ipynb).
 
 Electrode and pyramidal cell (or population center) coordinates are $N \times 3$ arrays and are given in μm.
 By default, it is assumed the current source coordinates represent the pyramidal cell somata, though the dipole center can be specified instead by setting `source_coords_are_somata` to `False`.
 
-
 In the case your current sources (pyramidal cells or populations) aren't uniformly pointing "up," you can pass a 3D vector of $N \times 3$ array via the `source_orientation` parameter.
 The default is `[0, 0, 1]`, indicating that the positive z axis is "up," towards the cortical surface.
+
+The calculator also stores parameters $\alpha, \tau_\text{GABA}, \tau_\text{AMPA}$.
+The defaults follow the Reference WSLFP (RWSLFP) values from the paper, the difference from WSLFP being that $\alpha$ is constant across depths.
 
 
 ```python
 import wslfp
 
-lfp_calc = wslfp.from_xyz_coords(elec_coords, exc_coords, amp_func=wslfp.aussel18)
+lfp_calc = wslfp.from_xyz_coords(elec_coords, exc_coords, amp_func=wslfp.mazzoni15_nrn)
 lfp_calc_pop = wslfp.from_xyz_coords(
-    elec_coords, exc_coords.mean(axis=0), amp_func=wslfp.mazzoni15
+    elec_coords, exc_coords.mean(axis=0), amp_func=wslfp.mazzoni15_pop
 )
 ```
 
@@ -335,7 +339,7 @@ lfp = lfp_calc.calculate(
 )
 ```
 
-    WARNING    /home/kyle/Dropbox (GaTech)/projects/wslfp/wslfp/__init__.py:78: UserWarning: Insufficient current data to interpolate for the requested times. Assuming 0 current for out-of-range times. Needed [-6.0, 493.9] ms, provided [0.0, 499.9] ms.
+    WARNING    /home/kyle/Dropbox (GaTech)/projects/wslfp/wslfp/__init__.py:85: UserWarning: Insufficient current data to interpolate for the requested times. Assuming 0 current for out-of-range times. Needed [-6.0, 493.9] ms, provided [0.0, 499.9] ms.
       warnings.warn(
      [py.warnings]
 
@@ -364,7 +368,7 @@ def plot_lfp(lfp, title=None):
         fig.suptitle(title)
 
 
-plot_lfp(lfp, "per-neuron contributions à la Aussel 2018")
+plot_lfp(lfp, "per-neuron contributions")
 ```
 
 
@@ -382,7 +386,7 @@ lfp_pop = lfp_calc_pop.calculate(
     t_ms,
     current_monitor.I_gaba.sum(axis=0),
 )
-plot_lfp(lfp_pop, title="currents summed over population à la Mazzoni 2015")
+plot_lfp(lfp_pop, title="currents summed over population")
 ```
 
 
@@ -417,7 +421,7 @@ I_gaba = wslfp.spikes_to_biexp_currents(
 lfp_spike = lfp_calc.calculate(t_ms, t_ms, I_ampa, t_ms, I_gaba)
 ```
 
-    WARNING    /home/kyle/Dropbox (GaTech)/projects/wslfp/wslfp/__init__.py:78: UserWarning: Insufficient current data to interpolate for the requested times. Assuming 0 current for out-of-range times. Needed [-6.0, 493.9] ms, provided [0.0, 499.9] ms.
+    WARNING    /home/kyle/Dropbox (GaTech)/projects/wslfp/wslfp/__init__.py:85: UserWarning: Insufficient current data to interpolate for the requested times. Assuming 0 current for out-of-range times. Needed [-6.0, 493.9] ms, provided [0.0, 499.9] ms.
       warnings.warn(
      [py.warnings]
 

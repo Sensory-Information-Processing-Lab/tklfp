@@ -16,9 +16,9 @@ from wslfp.spk2curr import spikes_to_biexp_currents
 
 
 def xyz_to_rd_coords(
-    source_coords,
-    elec_coords,
-    source_orientation,
+    source_coords: np.ndarray,
+    elec_coords: np.ndarray,
+    source_orientation: np.ndarray,
 ):
     n_sources = np.shape(source_coords)[0]
     n_elec = np.shape(elec_coords)[0]
@@ -54,16 +54,23 @@ class WSLFPCalculator:
     amp_uV: np.ndarray = field()
     """(n_elec, n_sources) array of amplitudes in μV"""
     alpha: float = 1.65
+    """Weight on GABAergic currents"""
     tau_ampa_ms: float = 6
+    """Delay of AMPAergic currents' contribution to LFP in ms"""
     tau_gaba_ms: float = 0
+    """Delay of GABAergic currents' contribution to LFP in ms"""
     strict_boundaries: bool = False
+    """Whether or not to raise an error when the requested times
+    are outside the provided current times"""
 
     @property
     def n_elec(self):
+        """Number of electrodes in the WSLFP calculator"""
         return self.amp_uV.shape[0]
 
     @property
     def n_sources(self):
+        """Number of current sources (neurons or populations) in the calculator"""
         return self.amp_uV.shape[1]
 
     def _interp_currents(self, t_ms, I, delay_ms, t_eval_ms):
@@ -94,8 +101,15 @@ class WSLFPCalculator:
         return I_interp
 
     def calculate(
-        self, t_eval_ms, t_ampa_ms, I_ampa, t_gaba_ms, I_gaba, normalize=True
+        self,
+        t_eval_ms: np.ndarray,
+        t_ampa_ms: np.ndarray,
+        I_ampa: np.ndarray,
+        t_gaba_ms: np.ndarray,
+        I_gaba: np.ndarray,
+        normalize: bool = True,
     ):
+        """Calculate the WSLFP at the requested times and for initialized coordinates given currents"""
         I_ampa = np.reshape(I_ampa, (-1, self.n_sources))
         assert I_ampa.shape == (
             len(t_ampa_ms),
