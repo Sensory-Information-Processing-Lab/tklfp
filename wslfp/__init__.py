@@ -7,6 +7,7 @@ from scipy.interpolate import PchipInterpolator
 from wslfp.amplitude import (
     aussel18,
     aussel18_mod,
+    f_amp,
     mazzoni15_nrn,
     mazzoni15_pop,
     plot_amp,
@@ -87,7 +88,6 @@ class WSLFPCalculator:
                     f"Needed [{t_needed[0]}, {t_needed[1]}] ms, "
                     f"provided [{t_provided[0]}, {t_provided[1]}] ms."
                 )
-        # I_interp = np.interp(t_eval_delayed, t_ms, I, left=0, right=0)
         I_interp = PchipInterpolator(t_ms, I, extrapolate=False)(t_eval_delayed)
         assert I_interp.shape == (len(t_eval_ms), self.n_sources)
         I_interp[np.isnan(I_interp)] = 0
@@ -136,7 +136,7 @@ def from_rec_radius_depth(
     r_um,
     d_um,
     source_dendrite_length_um=250,
-    amp_func=aussel18,
+    amp_func=mazzoni15_nrn,
     amp_kwargs={},
     **kwargs,
 ):
@@ -152,7 +152,7 @@ def from_xyz_coords(
     source_coords_are_somata=True,
     source_dendrite_length_um=250,
     source_orientation=(0, 0, 1),
-    amp_func=aussel18,
+    amp_func=mazzoni15_nrn,
     amp_kwargs={},
     **kwargs,
 ):
