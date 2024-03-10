@@ -1,3 +1,4 @@
+from typing import Union
 import numpy as np
 from scipy import sparse
 from scipy.optimize import fsolve
@@ -16,16 +17,43 @@ def biexp_kernel(t, tau1, tau2, normalize=False):
 
 
 def spikes_to_biexp_currents(
-    t_eval_ms,
-    t_spk_ms,
-    i_spk,
-    J,
-    tau1,
-    tau2,
-    syn_delay_ms=1,
-    normalize=False,
-    threshold=0.001,
-):
+    t_eval_ms: np.ndarray,
+    t_spk_ms: np.ndarray,
+    i_spk: np.ndarray,
+    J: Union[np.ndarray, sparse.sparray],
+    tau1: float,
+    tau2: float,
+    syn_delay_ms: float = 1,
+    normalize: bool = False,
+    threshold: float = 0.001,
+) -> np.ndarray:
+    """Generate currents from spikes using a biexponential kernel
+
+    Args:
+        t_eval_ms (np.ndarray): Time points at which to evaluate the currents
+        t_spk_ms (np.ndarray): Times at which spikes occur, in milliseconds
+        i_spk (np.ndarray): Neuron indices of presynaptic spikes
+        J (Union[np.ndarray, sparse.sparray]): Weight matrix with element [i, j] giving
+            the weight of the connection from source i to target j.
+
+            This could be simplified to just `n_pop` columns if the goal is to compute
+            WSLFP from currents summed over the population. In the case of homogeneous
+            weights, the rows can be collapsed as well, so that in the most compact case,
+            J is a 1x1 array containing the value (weight * N_connections) and i_spk
+            contains only zeros.
+        tau1 (float): The decay time constant of the biexponential kernel
+        tau2 (float): The time constant of the subtracted exponential in the biexponential
+            kernel, related to the rise time
+        syn_delay_ms (float, optional): Synaptic delay, in milliseconds. Defaults to 1.
+        normalize (bool, optional): Whether to normalize the biexponential kernel.
+            Defaults to False, as the scale of currents is normalized in the ultimate
+            WSLFP calculation.
+        threshold (float, optional): Value, as a proportion of the peak current, below which
+            spikes' contributions to the current at a given time are ignored. Defaults to 0.001.
+
+    Returns:
+        np.ndarray: (len(T_eval_ms), n_targets) array of currents at each time point
+    """
     if not isinstance(t_spk_ms, np.ndarray):
         t_spk_ms = np.array(t_spk_ms)
     if not isinstance(i_spk, np.ndarray):

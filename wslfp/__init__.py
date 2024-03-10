@@ -1,4 +1,5 @@
 import warnings
+from typing import Union
 
 import numpy as np
 from attrs import define, field
@@ -22,7 +23,6 @@ def xyz_to_rd_coords(
 ):
     n_sources = np.shape(source_coords)[0]
     n_elec = np.shape(elec_coords)[0]
-    # n_elec X n_nrns X 3
     xyz_dist = elec_coords[:, np.newaxis, :] - source_coords[np.newaxis, :, :]
     assert xyz_dist.shape == (n_elec, n_sources, 3)
 
@@ -51,6 +51,10 @@ def xyz_to_rd_coords(
 
 @define
 class WSLFPCalculator:
+    """Calculator for WSLFP given current sources and electrode coordinates.
+
+    Use `wslfp.from_rec_radius_depth` or `wslfp.from_xyz_coords` to initialize."""
+
     amp_uV: np.ndarray = field()
     """(n_elec, n_sources) array of amplitudes in μV"""
     alpha: float = 1.65
@@ -60,16 +64,16 @@ class WSLFPCalculator:
     tau_gaba_ms: float = 0
     """Delay of GABAergic currents' contribution to LFP in ms"""
     strict_boundaries: bool = False
-    """Whether or not to raise an error when the requested times
-    are outside the provided current times"""
+    """Whether or not to raise an error when evaluation times
+    require currents outside the provided time range"""
 
     @property
-    def n_elec(self):
+    def n_elec(self) -> int:
         """Number of electrodes in the WSLFP calculator"""
         return self.amp_uV.shape[0]
 
     @property
-    def n_sources(self):
+    def n_sources(self) -> int:
         """Number of current sources (neurons or populations) in the calculator"""
         return self.amp_uV.shape[1]
 
@@ -108,8 +112,25 @@ class WSLFPCalculator:
         t_gaba_ms: np.ndarray,
         I_gaba: np.ndarray,
         normalize: bool = True,
-    ):
-        """Calculate the WSLFP at the requested times and for initialized coordinates given currents"""
+    ) -> np.ndarray:
+        """Calculate WSLFP at requested times for initialized coordinates given currents
+
+        Args:
+            t_eval_ms (np.ndarray): Times at which to evaluate the WSLFP, in milliseconds
+            t_ampa_ms (np.ndarray): Time points at which AMPAergic currents are given,
+                in milliseconds
+            I_ampa (np.ndarray): AMPAergic currents, shape (len(t_ampa_ms), n_sources)
+            t_gaba_ms (np.ndarray): Time points at which AMPAergic currents are given,
+                in milliseconds
+            I_gaba (np.ndarray): GABAergic currents, shape (len(t_ampa_ms), n_sources)
+            normalize (bool, optional): Whether to normalize to mean of 0 and variance of 1.
+                The main reason not to normalize is if you are computing one time step at a time.
+                Defaults to True.
+
+        Returns:
+            np.ndarray: (len(t_eval_ms), n_elec) array of WSLFP at requested times for
+                each electrode
+        """
         I_ampa = np.reshape(I_ampa, (-1, self.n_sources))
         assert I_ampa.shape == (
             len(t_ampa_ms),
@@ -147,13 +168,30 @@ class WSLFPCalculator:
 
 
 def from_rec_radius_depth(
-    r_um,
-    d_um,
+    r_um: np.ndarray,
+    d_um: np.ndarray,
     source_dendrite_length_um=250,
-    amp_func=mazzoni15_nrn,
+    amp_func: callable = mazzoni15_nrn,
     amp_kwargs={},
     **kwargs,
-):
+) -> WSLFPCalculator:
+    """Initalize a `WSLFPCalculator` from recording radius and depth coordinates
+
+    Args:
+        r_um (np.ndarray): (n_elec, n_sources) array of lateral distance from source to electrode
+        d_um (np.ndarray): (n_elec, n_sources) array of vertical distance from source
+            to electrode. Convention follows Mazzoni 2015, measuring distance from dipole
+            center.
+        source_dendrite_length_um (int or np.ndarray, optional): Length of apical dendrites.
+            Defaults to 250.
+        amp_func (callable, optional): Amplitude function that follows signature of
+            wslfp.f_amp. Defaults to `mazzoni15_nrn`.
+        amp_kwargs (dict, optional): Passed to `amp_func`. Defaults to {}.
+
+    Returns:
+        WSLFPCalculator: Calculator object with per-source, per-electrode amplitude
+            properly initialized.
+    """
     amplitude_per_source = amp_func(
         r_um, d_um, L_um=source_dendrite_length_um, **amp_kwargs
     )
@@ -161,15 +199,35 @@ def from_rec_radius_depth(
 
 
 def from_xyz_coords(
-    elec_coords_um,
-    source_coords_um,
-    source_coords_are_somata=True,
-    source_dendrite_length_um=250,
-    source_orientation=(0, 0, 1),
-    amp_func=mazzoni15_nrn,
+    elec_coords_um: np.ndarray,
+    source_coords_um: np.ndarray,
+    source_coords_are_somata: bool = True,
+    source_dendrite_length_um: Union[int, np.ndarray] = 250,
+    source_orientation: np.ndarray = (0, 0, 1),
+    amp_func: callable = mazzoni15_nrn,
     amp_kwargs={},
     **kwargs,
-):
+) -> WSLFPCalculator:
+    """Initializes calculator from electrode and source coordinates
+
+    Args:
+        elec_coords_um (np.ndarray): (n_elec, 3) array of electrode coordinates in μm
+        source_coords_um (np.ndarray): (n_sources, 3) array of source (neuron or population)
+            coordinates in μm
+        source_coords_are_somata (bool, optional): Whether source_coords represent somata
+            (as opposed to dipole midpoint). Defaults to True.
+        source_dendrite_length_um (Union[int, np.ndarray], optional): Length of apical dendrite,
+            in μm, used in some amplitude functions. Defaults to 250.
+        source_orientation (np.ndarray, optional): The vector(s) pointing "up," from soma
+            to apical dendrite. Can have shape (3,) or (n_src, 3). Defaults to (0, 0, 1).
+        amp_func (callable, optional): Amplitude function that follows signature of
+            wslfp.f_amp. Defaults to `mazzoni15_nrn`.
+        amp_kwargs (dict, optional): Passed to `amp_func`. Defaults to {}.
+
+    Returns:
+        WSLFPCalculator: Calculator object with per-source, per-electrode amplitude
+            properly initialized.
+    """
     elec_coords_um = np.reshape(elec_coords_um, (-1, 3))
     source_coords_um = np.reshape(source_coords_um, (-1, 3))
     ornt_shape = np.shape(source_orientation)
