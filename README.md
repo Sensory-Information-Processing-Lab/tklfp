@@ -304,7 +304,7 @@ Different amplitude profiles are available and can be specified via the `amp_fun
 - `mazzoni15_pop`: derived from [Fig. 2B of the original paper](https://doi.org/10.1371/journal.pcbi.1004584.g002).
     The most accurate option since it was based on detailed simulations.
     It is most appropriate when each source represents a population of neurons since that is how the data was produced.
-- `mazzoni15_nrn`: has the same shape as `mazzoni15`, but is optimally shrunk and scaled so that the profile of individual neurons averaged out over a 250 μm-radius cylinder is as close as possible to the population profile.
+- `mazzoni15_nrn`: has the same shape as `mazzoni15_pop`, but is optimally shrunk and scaled so that the profile of individual neurons averaged out over a 250 μm-radius cylinder is as close as possible to the population profile.
 - `aussel18`: uses the closed-form equation for contributions from individual neurons described in [Aussel *et al.*, 2018](https://doi.org/10.1007/s10827-018-0704-x): $U = \frac{Lcos\theta}{4\pi\sigma r^2} (I_{syn_E} + I_{syn_I})$
 
 These amplitudes are averaged (rather than summed) across neurons or populations so that the scale of the resulting signal matches the paper (between about -0.1 and 0.1 μV for close recordings), regardless of how many neurons or populations are present.
