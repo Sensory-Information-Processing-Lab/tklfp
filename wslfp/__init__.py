@@ -80,6 +80,8 @@ class WSLFPCalculator:
     def _interp_currents(self, t_ms, I, delay_ms, t_eval_ms):
         if not np.all(np.diff(t_ms) > 0):
             raise ValueError("t_ms must be monotonically increasing")
+        if len(t_ms) == 0:
+            return np.zeros((len(t_eval_ms), self.n_sources))
 
         t_eval_delayed = np.subtract(t_eval_ms, delay_ms)
         t_needed = (np.min(t_eval_delayed), np.max(t_eval_delayed))
@@ -99,7 +101,12 @@ class WSLFPCalculator:
                     f"Needed [{t_needed[0]}, {t_needed[1]}] ms, "
                     f"provided [{t_provided[0]}, {t_provided[1]}] ms."
                 )
-        I_interp = PchipInterpolator(t_ms, I, extrapolate=False)(t_eval_delayed)
+        if len(t_ms) > 1:
+            interpolator = PchipInterpolator(t_ms, I, extrapolate=False)
+        elif len(t_ms) == 1:
+            interpolator = lambda t_eval: (t_eval == t_ms[0]) * I[0:1]
+
+        I_interp = interpolator(t_eval_delayed)
         assert I_interp.shape == (len(t_eval_ms), self.n_sources)
         I_interp[np.isnan(I_interp)] = 0
         return I_interp
@@ -112,6 +119,7 @@ class WSLFPCalculator:
         t_gaba_ms: np.ndarray,
         I_gaba: np.ndarray,
         normalize: bool = True,
+        wsum_mean_std_for_norm: tuple[np.ndarray, np.ndarray] = None,
     ) -> np.ndarray:
         """Calculate WSLFP at requested times for initialized coordinates given currents
 
@@ -124,8 +132,12 @@ class WSLFPCalculator:
                 in milliseconds
             I_gaba (np.ndarray): GABAergic currents, shape (len(t_ampa_ms), n_sources)
             normalize (bool, optional): Whether to normalize to mean of 0 and variance of 1.
-                The main reason not to normalize is if you are computing one time step at a time.
-                Defaults to True.
+                The main reason not to normalize is if you are computing one time step at a time
+                (see `notebooks/stepwise.ipynb`).  Defaults to True.
+            wsum_mean_std_for_norm (tuple[np.ndarray, np.ndarray], optional): If provided,
+                the mean and standard deviation of the weighted sum term are used to normalize
+                before a realistic amplitude is applied. (see `notebooks/stepwise.ipynb`).
+                Defaults to None.
 
         Returns:
             np.ndarray: (len(t_eval_ms), n_elec) array of WSLFP at requested times for
@@ -153,18 +165,33 @@ class WSLFPCalculator:
         assert wsum.shape == (len(t_eval_ms), self.n_elec, self.n_sources)
         wsum = np.sum(wsum, axis=2)
         assert wsum.shape == (len(t_eval_ms), self.n_elec)
+
         if normalize:
-            wsum = wsum - np.mean(wsum, axis=0)
-            if len(t_eval_ms) > 1:
-                wsum /= np.std(wsum, axis=0)
-            assert wsum.shape == (len(t_eval_ms), self.n_elec)
+            if wsum_mean_std_for_norm:
+                wsum_mean, wsum_std = wsum_mean_std_for_norm
+            else:
+                wsum_mean = np.mean(wsum, axis=0)
+                if len(t_eval_ms) > 1:
+                    wsum_std = np.std(wsum, axis=0)
+                else:
+                    wsum_std = 1
 
-        assert np.allclose(wsum.mean(axis=0), 0)
-        if len(t_eval_ms) > 1:
-            assert np.allclose(wsum.std(axis=0), 1)
+            lfp = (wsum - wsum_mean) / wsum_std
+            assert lfp.shape == (len(t_eval_ms), self.n_elec)
 
-        wsum *= np.abs(self.amp_uV.mean(axis=1))
-        return wsum
+            if not wsum_mean_std_for_norm:
+                assert np.allclose(lfp.mean(axis=0), 0)
+                if len(t_eval_ms) > 1:
+                    assert np.allclose(lfp.std(axis=0), 1)
+
+            lfp *= np.abs(self.amp_uV.mean(axis=1))
+        else:
+            lfp = wsum
+
+        if normalize and wsum_mean_std_for_norm:
+            return lfp, wsum
+        else:
+            return lfp
 
 
 def from_rec_radius_depth(

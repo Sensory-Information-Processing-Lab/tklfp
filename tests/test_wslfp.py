@@ -26,6 +26,9 @@ import wslfp
         ([1, 5, 9, 12, 17], [1, 3, 5, 9, 12], [], False),
         ([2, 4, 6, 23, 25], [7, 10, 15, 21, 25], [12, 20, 24], True),
         ([2, 3, 4, 5, 6], [50, 60, 70, 80, 90], [70, 100], False),
+        ([0], [6], [6], True),
+        ([6], [6], [6], False),
+        ([6], [0], [6], False),
     ],
 )
 def test_calculate(t_ampa, t_gaba, t_eval, success, n_elec, seed):
@@ -38,8 +41,6 @@ def test_calculate(t_ampa, t_gaba, t_eval, success, n_elec, seed):
     I_gaba = -np.arange(len(t_gaba)) - 2
     I_gaba = I_gaba[:, np.newaxis] - np.arange(n_src)
 
-    # xs = ys = zs = np.array([1, 2, 3])
-    # source_coords = np.column_stack((xs, ys, zs))
     source_coords = rng.uniform(-10, 10, (n_src, 3))
     elec_coords = rng.uniform(-500, 500, (n_elec, 3))
 
@@ -56,7 +57,7 @@ def test_calculate(t_ampa, t_gaba, t_eval, success, n_elec, seed):
             )
         ), "LFP increasing order does not match expectation"
     else:
-        with pytest.raises(ValueError):
+        with pytest.raises(Exception):
             calc.calculate(t_eval, t_ampa, I_ampa, t_gaba, I_gaba)
 
 

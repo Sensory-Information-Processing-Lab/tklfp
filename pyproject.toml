@@ -37,6 +37,7 @@ nbdev = "^2.3.12"
 brian2 = "^2.5.4"
 nbmake = "^1.5.0"
 jupyter = "^1.0.0"
+pytest-xdist = "^3.5.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -44,4 +45,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 addopts = "-q --nbmake"
-testpaths = ["tests", "README.ipynb"]
+testpaths = ["tests", "README.ipynb", "notebooks/real_time.ipynb"]
