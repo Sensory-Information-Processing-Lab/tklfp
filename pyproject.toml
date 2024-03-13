@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wslfp"
-version = "0.1.0"
+version = "0.1.1"
 description = "Weighted Sum Local Field Potentials - Implementation of the proxy method for point neurons from Mazzoni, Lindén et al., 2015"
 authors = [
     "Kyle Johnsen <kyle@kjohnsen.org>",
@@ -45,4 +45,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 addopts = "-q --nbmake"
-testpaths = ["tests", "README.ipynb", "notebooks/real_time.ipynb"]
+testpaths = ["tests", "README.ipynb", "notebooks/stepwise.ipynb"]
