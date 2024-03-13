@@ -21,8 +21,8 @@ def spikes_to_biexp_currents(
     t_spk_ms: np.ndarray,
     i_spk: np.ndarray,
     J: Union[np.ndarray, sparse.sparray],
-    tau1: float,
-    tau2: float,
+    tau1_ms: float,
+    tau2_ms: float,
     syn_delay_ms: float = 1,
     normalize: bool = False,
     threshold: float = 0.001,
@@ -67,15 +67,15 @@ def spikes_to_biexp_currents(
     assert t_spk_conv.shape == (T, n_spk)
     assert np.all(np.diff(t_spk_ms) >= 0), "assuming t_spk_ms is sorted"
 
-    assert tau1 > tau2, "tau1 must be greater than tau2"
+    assert tau1_ms > tau2_ms, "tau1 must be greater than tau2"
 
     # Define a function for the difference between the biexp_kernel and the threshold
     def biexp(t):
-        return biexp_kernel(t, tau1, tau2, normalize=True) - threshold
+        return biexp_kernel(t, tau1_ms, tau2_ms, normalize=True) - threshold
 
     # Use fsolve to find the time when the biexp_kernel drops to the threshold
-    t_end = fsolve(biexp, 6 * tau1)[0]
-    assert t_end > tau1
+    t_end = fsolve(biexp, 6 * tau1_ms)[0]
+    assert t_end > tau1_ms
 
     I_syn = np.zeros((T, n_targets))
 
@@ -89,7 +89,9 @@ def spikes_to_biexp_currents(
             continue
         window_sizes[t] = spk_right - spk_left
 
-        I_syn_t = biexp_kernel(t_spk_conv[t, spk_left:spk_right], tau1, tau2, normalize)
+        I_syn_t = biexp_kernel(
+            t_spk_conv[t, spk_left:spk_right], tau1_ms, tau2_ms, normalize
+        )
 
         J_t = J[i_spk[spk_left:spk_right], :]
         # numpy doesn't handle multiplication with sparse matrices
