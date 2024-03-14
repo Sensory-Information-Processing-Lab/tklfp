@@ -143,6 +143,14 @@ class WSLFPCalculator:
             np.ndarray: (len(t_eval_ms), n_elec) array of WSLFP at requested times for
                 each electrode
         """
+        # convert t to arrays if needed
+        if isinstance(t_eval_ms, (list, tuple, int, float)):
+            t_eval_ms = np.array(t_eval_ms)
+        if isinstance(t_ampa_ms, (list, tuple, int, float)):
+            t_ampa_ms = np.array(t_ampa_ms)
+        if isinstance(t_gaba_ms, (list, tuple, int, float)):
+            t_gaba_ms = np.array(t_gaba_ms)
+
         I_ampa = np.reshape(I_ampa, (-1, self.n_sources))
         assert I_ampa.shape == (
             len(t_ampa_ms),
@@ -161,6 +169,7 @@ class WSLFPCalculator:
             t_gaba_ms, I_gaba, self.tau_gaba_ms, t_eval_ms
         )
 
+        # core computation
         wsum = self.amp_uV * (I_ampa_eval - self.alpha * I_gaba_eval)[:, np.newaxis, :]
         assert wsum.shape == (len(t_eval_ms), self.n_elec, self.n_sources)
         wsum = np.sum(wsum, axis=2)

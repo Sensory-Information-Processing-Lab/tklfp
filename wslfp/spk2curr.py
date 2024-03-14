@@ -54,6 +54,8 @@ def spikes_to_biexp_currents(
     Returns:
         np.ndarray: (len(T_eval_ms), n_targets) array of currents at each time point
     """
+    if not isinstance(t_eval_ms, np.ndarray):
+        t_eval_ms = np.array(t_eval_ms)
     if not isinstance(t_spk_ms, np.ndarray):
         t_spk_ms = np.array(t_spk_ms)
     if not isinstance(i_spk, np.ndarray):
