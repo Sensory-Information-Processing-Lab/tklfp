@@ -144,12 +144,12 @@ class WSLFPCalculator:
                 each electrode
         """
         # convert t to arrays if needed
-        if isinstance(t_eval_ms, (list, tuple, int, float)):
-            t_eval_ms = np.array(t_eval_ms)
-        if isinstance(t_ampa_ms, (list, tuple, int, float)):
-            t_ampa_ms = np.array(t_ampa_ms)
-        if isinstance(t_gaba_ms, (list, tuple, int, float)):
-            t_gaba_ms = np.array(t_gaba_ms)
+        if isinstance(t_eval_ms, (int, float)):
+            t_eval_ms = np.array([t_eval_ms])
+        if isinstance(t_ampa_ms, (int, float)):
+            t_ampa_ms = np.array([t_ampa_ms])
+        if isinstance(t_gaba_ms, (int, float)):
+            t_gaba_ms = np.array([t_gaba_ms])
 
         I_ampa = np.reshape(I_ampa, (-1, self.n_sources))
         assert I_ampa.shape == (

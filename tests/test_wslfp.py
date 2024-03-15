@@ -19,7 +19,7 @@ import wslfp
         # length of time and current array must equal
         ([1, 2, 4], [1, 2, 10], [9], True),
         # missing I_gaba at t=9
-        ([1, 2, 10], [1, 2, 4], [9], False),
+        ([1, 2, 10], [1, 2, 4], 9, False),
         ([3, 2, 1], [3, 2, 1], [2], False),  # Non-increasing order, should fail
         ([], [], [], False),  # Empty arrays, should fail
         ([1, 5, 9, 12, 17], [1, 3, 5, 9, 12], [8, 11], True),
@@ -27,8 +27,9 @@ import wslfp
         ([2, 4, 6, 23, 25], [7, 10, 15, 21, 25], [12, 20, 24], True),
         ([2, 3, 4, 5, 6], [50, 60, 70, 80, 90], [70, 100], False),
         ([0], [6], [6], True),
-        ([6], [6], [6], False),
-        ([6], [0], [6], False),
+        (0, 6, 6, True),
+        ([6], 6, [6], False),
+        (6, [0], [6], False),
     ],
 )
 def test_calculate(t_ampa, t_gaba, t_eval, success, n_elec, seed):
@@ -36,9 +37,9 @@ def test_calculate(t_ampa, t_gaba, t_eval, success, n_elec, seed):
     # Dummy data for currents and coordinates
     n_src = 3
     n_elec = 2
-    I_ampa = np.arange(len(t_ampa))
+    I_ampa = np.arange(np.size(t_ampa))
     I_ampa = I_ampa[:, np.newaxis] + np.arange(n_src)
-    I_gaba = -np.arange(len(t_gaba)) - 2
+    I_gaba = -np.arange(np.size(t_gaba)) - 2
     I_gaba = I_gaba[:, np.newaxis] - np.arange(n_src)
 
     source_coords = rng.uniform(-10, 10, (n_src, 3))
@@ -47,7 +48,7 @@ def test_calculate(t_ampa, t_gaba, t_eval, success, n_elec, seed):
     calc = wslfp.from_xyz_coords(elec_coords, source_coords, strict_boundaries=True)
     if success:
         lfp_values = calc.calculate(t_eval, t_ampa, I_ampa, t_gaba, I_gaba)
-        assert lfp_values.shape == (len(t_eval), n_elec)
+        assert lfp_values.shape == (np.size(t_eval), n_elec)
         # increasing could be negative or positive
         # can't use np.abs since normalization can put values on either side of 0
         assert np.all(
