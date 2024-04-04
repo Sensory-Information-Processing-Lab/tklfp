@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import LinearNDInterpolator
 
+#Contributor: Aarav Shah
+
 
 def aussel18(r_um, d_um, L_um=250, sigma=0.3):
     """Follows the closed-form formula for per-neuron contributions from Aussel et al., 2018.
