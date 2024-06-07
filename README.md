@@ -541,3 +541,7 @@ axs[1].set(
 ## Future development
 These features might be useful to add in the future:
 - amplitude and $\alpha$ that vary by axon length as well as by recording position
+
+## Citation
+Please cite the [publication for the Cleo simulator](https://www.biorxiv.org/content/10.1101/2023.01.27.525963v1) if you use this software in your research.
+You may also cite the [Zenodo DOI](https://zenodo.org/doi/10.5281/zenodo.10810169) for this repository.
