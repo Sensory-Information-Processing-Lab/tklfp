@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import LinearNDInterpolator
 
-#Contributor: Aarav Shah
-
 
 def aussel18(r_um, d_um, L_um=250, sigma=0.3):
     """Follows the closed-form formula for per-neuron contributions from Aussel et al., 2018.
@@ -28,7 +26,9 @@ def aussel18_mod(r_um, d_um, L_um=250, sigma=0.3):
 
 def mazzoni15_pop(r_um, d_um, L_um=250, sigma=0.3):
     """The profile of the LFP amplitude extracted from Mazzoni, Lindén et al., 2015,
-    Figure 2B. See `notebooks/mazzoni_data_extrapolation.ipynb`"""
+    Figure 2B. See `notebooks/mazzoni_data_extrapolation.ipynb`.
+
+    Credit for linear interpolation: Aarav Shah"""
     rdf_samples = np.load(resources.files("wslfp") / "mazzoni15-rdf.npy")
     pos_interp = LinearNDInterpolator(rdf_samples[:, :2], rdf_samples[:, 2])
     d_um_sign = np.sign(d_um)
